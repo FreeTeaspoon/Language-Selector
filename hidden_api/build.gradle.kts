@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "com.example.hidden_api"
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         minSdk = 33

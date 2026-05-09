@@ -1,10 +1,10 @@
 package vegabobo.languageselector.ui.components
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Back
 
 @Composable
 fun BackButton(
@@ -12,7 +12,7 @@ fun BackButton(
 ){
     IconButton(onClick = { onClick() }) {
         Icon(
-            imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+            imageVector = MiuixIcons.Regular.Back,
             contentDescription = "Back arrow"
         )
     }

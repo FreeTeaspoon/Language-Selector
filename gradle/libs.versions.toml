@@ -2,21 +2,21 @@
 aboutlibraries = "10.6.3"
 libsu = "6.0.0"
 hiddenapibypass = "4.3"
-hilt = "2.51.1"
+hilt = "2.58"
 hilt-navigation-compose = "1.2.0"
 material-icons-extended = "1.7.6"
 navigation-compose = "2.8.5"
-room-compiler = "2.6.1"
+room-compiler = "2.8.4"
 shizuku = "13.1.1"
-com-android-application = "8.7.3"
-org-jetbrains-kotlin-android = "2.0.21"
+com-android-application = "8.13.2"
+org-jetbrains-kotlin-android = "2.3.21"
 core-ktx = "1.15.0"
 lifecycle-runtime-ktx = "2.8.7"
 activity-compose = "1.9.3"
-compose-bom = "2024.12.01"
-com-android-library = "8.7.3"
-material = "1.12.0"
-ksp = "2.0.21-1.0.27"
+compose-bom = "2026.05.00"
+com-android-library = "8.13.2"
+miuix = "0.9.0"
+ksp = "2.3.7"
 
 [libraries]
 aboutlibraries-core = { module = "com.mikepenz:aboutlibraries-core", version.ref = "aboutlibraries" }
@@ -42,8 +42,9 @@ ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
 ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
 ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
 ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
-material3 = { group = "androidx.compose.material3", name = "material3" }
-material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+miuix-ui = { group = "top.yukonga.miuix.kmp", name = "miuix-ui-android", version.ref = "miuix" }
+miuix-icons = { group = "top.yukonga.miuix.kmp", name = "miuix-icons-android", version.ref = "miuix" }
+miuix-preference = { group = "top.yukonga.miuix.kmp", name = "miuix-preference-android", version.ref = "miuix" }
 
 [plugins]
 com-android-application = { id = "com.android.application", version.ref = "com-android-application" }

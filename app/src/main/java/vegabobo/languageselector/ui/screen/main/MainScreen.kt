@@ -9,10 +9,6 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -31,8 +27,10 @@ import vegabobo.languageselector.R
 import vegabobo.languageselector.ui.components.AppListItem
 import vegabobo.languageselector.ui.components.AppSearchBar
 import vegabobo.languageselector.ui.screen.BaseScreen
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.SnackbarHostState
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MainScreen(
     mainScreenVm: MainScreenVm = hiltViewModel(),
@@ -48,27 +46,17 @@ fun MainScreen(
         mainScreenVm.uiState.collectLatest {
             when (it.snackBarDisplay) {
                 SnackBarDisplay.MOVED_TO_TOP -> {
-                    val r = sb.showSnackbar(
-                        message = "Modified app has been moved up",
-                        actionLabel = "Navigate"
-                    )
-                    if (r == SnackbarResult.ActionPerformed) {
-                        val i =
-                            mainScreenVm.getIndexFromAppInfoItem() + 1 /* first item is a spacer */
-                        lazyListState.animateScrollToItem(i)
-                    }
+                    val i =
+                        mainScreenVm.getIndexFromAppInfoItem() + 1 /* first item is a spacer */
+                    lazyListState.animateScrollToItem(i)
+                    sb.showSnackbar("Modified app has been moved up")
                 }
 
                 SnackBarDisplay.MOVED_TO_BOTTOM -> {
-                    val r = sb.showSnackbar(
-                        message = "Unmodified has been moved down",
-                        actionLabel = "Navigate"
-                    )
-                    if (r == SnackbarResult.ActionPerformed) {
-                        val i =
-                            mainScreenVm.getIndexFromAppInfoItem() + 1 /* first item is a spacer */
-                        lazyListState.animateScrollToItem(i)
-                    }
+                    val i =
+                        mainScreenVm.getIndexFromAppInfoItem() + 1 /* first item is a spacer */
+                    lazyListState.animateScrollToItem(i)
+                    sb.showSnackbar("Unmodified has been moved down")
                 }
 
                 else -> {}

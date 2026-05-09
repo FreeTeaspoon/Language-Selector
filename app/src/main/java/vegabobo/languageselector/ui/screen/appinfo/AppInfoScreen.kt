@@ -18,8 +18,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -41,8 +39,8 @@ import vegabobo.languageselector.ui.components.QuickTextButton
 import vegabobo.languageselector.ui.components.Title
 import vegabobo.languageselector.ui.screen.BaseScreen
 import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.basic.Text
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppInfoScreen(
     appId: String,

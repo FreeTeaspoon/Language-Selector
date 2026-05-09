@@ -1,31 +1,41 @@
 package vegabobo.languageselector.ui.screen.main
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.WarningAmber
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.window.WindowDialog
 import vegabobo.languageselector.R
 
 @Composable
 fun ShizukuRequiredWarning(
     onClickContinue: () -> Unit
 ) {
-    AlertDialog(
+    WindowDialog(
+        show = true,
         onDismissRequest = {},
-        confirmButton = {
-            TextButton(onClick = { onClickContinue() }) { Text(stringResource(id = R.string.proceed)) }
-        },
-        icon = {
-            Icon(
-                imageVector = Icons.Outlined.WarningAmber,
-                contentDescription = "Warning icon"
+        title = stringResource(id = R.string.permissions_required)
+    ) {
+        Column {
+            Text(
+                text = stringResource(id = R.string.shizuku_required),
+                color = MiuixTheme.colorScheme.onSurface
             )
-        },
-        title = { Text(stringResource(id = R.string.permissions_required)) },
-        text = { Text(stringResource(id = R.string.shizuku_required)) }
-    )
+            Spacer(modifier = Modifier.height(20.dp))
+            TextButton(
+                modifier = Modifier.fillMaxWidth(),
+                text = stringResource(id = R.string.proceed),
+                colors = ButtonDefaults.textButtonColorsPrimary(),
+                onClick = { onClickContinue() }
+            )
+        }
+    }
 }
