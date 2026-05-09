@@ -5,7 +5,6 @@ import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.Handler
 import android.os.Looper
-import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.topjohnwu.superuser.Shell
@@ -35,7 +34,7 @@ class MainScreenVm @Inject constructor(
     val dao = appInfoDb.appInfoDao()
 
     fun getIndexFromAppInfoItem(): Int {
-        return _uiState.value.listOfApps.indexOfFirst { it.pkg == lastSelectedApp?.pkg }
+        return _uiState.value.visibleHomeApps.indexOfFirst { it.pkg == lastSelectedApp?.pkg }
     }
 
     fun loadOperationMode() {
@@ -72,7 +71,7 @@ class MainScreenVm @Inject constructor(
         if (!languagePreferences.isEmpty)
             labels.add(AppLabels.MODIFIED)
         return AppInfo(
-            icon = app.packageManager.getAppIcon(a),
+            icon = app.packageManager.getAppIconBitmap(a),
             name = app.packageManager.getLabel(a),
             pkg = a.packageName,
             labels = labels
@@ -84,11 +83,20 @@ class MainScreenVm @Inject constructor(
             if (_uiState.value.operationMode == OperationMode.NONE)
                 loadOperationMode()
             val packageList = getInstalledPackages().map { parseAppInfo(it) }
-            var sortedList =
+            val sortedList =
                 packageList.sortedBy { it.name.lowercase() }.sortedBy { !it.isModified() }
-            _uiState.value.listOfApps.clear()
-            _uiState.value.listOfApps.addAll(sortedList)
-            _uiState.update { it.copy(isLoading = false) }
+            _uiState.update {
+                it.copy(
+                    listOfApps = sortedList,
+                    visibleHomeApps = getVisibleHomeApps(sortedList, it.isShowSystemAppsHome),
+                    searchResults = getSearchResults(
+                        sortedList,
+                        it.searchTextFieldValue,
+                        it.selectLabels
+                    ),
+                    isLoading = false
+                )
+            }
         }
     }
 
@@ -112,11 +120,10 @@ class MainScreenVm @Inject constructor(
         val newShowSystemApps = !uiState.value.isShowSystemAppsHome
         _uiState.update {
             it.copy(
-                isLoading = true,
-                isShowSystemAppsHome = newShowSystemApps
+                isShowSystemAppsHome = newShowSystemApps,
+                visibleHomeApps = getVisibleHomeApps(it.listOfApps, newShowSystemApps)
             )
         }
-        fillListOfApps()
         toggleDropdown()
     }
 
@@ -124,9 +131,9 @@ class MainScreenVm @Inject constructor(
         loadOperationMode()
     }
 
-    val searchQuery = mutableStateOf("")
     private val handler = Handler(Looper.getMainLooper())
     private var workRunnable: Runnable? = null
+    private val searchDebounceMillis = 150L
 
     fun onSearchTextFieldChange(newText: String) {
         _uiState.update { it.copy(searchTextFieldValue = newText) }
@@ -134,25 +141,42 @@ class MainScreenVm @Inject constructor(
         if (workRunnable != null)
             handler.removeCallbacks(workRunnable!!)
 
-        workRunnable = Runnable { searchQuery.value = newText }
-        handler.postDelayed(workRunnable!!, 1000)
+        workRunnable = Runnable {
+            _uiState.update {
+                it.copy(searchResults = getSearchResults(it.listOfApps, newText, it.selectLabels))
+            }
+        }
+        handler.postDelayed(workRunnable!!, searchDebounceMillis)
     }
 
-    fun onSearchExpandedChange() {
-        val isExpanded = !uiState.value.isExpanded
+    fun onSearchExpandedChange(isExpanded: Boolean) {
         _uiState.update { it.copy(isExpanded = isExpanded) }
         if (isExpanded)
             updateHistory()
         else
-            _uiState.update { it.copy(searchTextFieldValue = "") }
+            _uiState.update {
+                it.copy(
+                    searchTextFieldValue = "",
+                    searchResults = emptyList()
+                )
+            }
     }
 
     fun onSelectedLabelChange(label: AppLabels) {
-        val lb = _uiState.value.selectLabels
-        if (lb.contains(label))
-            lb.remove(label)
-        else
-            lb.add(label)
+        _uiState.update {
+            val selectedLabels = if (it.selectLabels.contains(label))
+                it.selectLabels - label
+            else
+                it.selectLabels + label
+            it.copy(
+                selectLabels = selectedLabels,
+                searchResults = getSearchResults(
+                    it.listOfApps,
+                    it.searchTextFieldValue,
+                    selectedLabels
+                )
+            )
+        }
     }
 
     fun updateHistory() {
@@ -166,8 +190,7 @@ class MainScreenVm @Inject constructor(
                 else
                     listOfApps[idx]
             }
-            _uiState.value.history.clear()
-            _uiState.value.history.addAll(history)
+            _uiState.update { it.copy(history = history) }
         }
     }
 
@@ -195,12 +218,19 @@ class MainScreenVm @Inject constructor(
         val apps = _uiState.value.listOfApps
         val idx = apps.indexOfFirst { it.pkg == updatedAi.pkg }
         if (idx != -1 && updatedAi.labels != apps[idx].labels) {
-            apps[idx] = updatedAi
-            val newList = _uiState.value.listOfApps.sortedBy { it.name.lowercase() }
+            val appsWithUpdate = apps.toMutableList()
+            appsWithUpdate[idx] = updatedAi
+            val newList = appsWithUpdate.sortedBy { it.name.lowercase() }
                 .sortedBy { !it.isModified() }.toMutableList()
             _uiState.update {
                 it.copy(
                     listOfApps = newList,
+                    visibleHomeApps = getVisibleHomeApps(newList, it.isShowSystemAppsHome),
+                    searchResults = getSearchResults(
+                        newList,
+                        it.searchTextFieldValue,
+                        it.selectLabels
+                    ),
                     snackBarDisplay = if (updatedAi.isModified()) SnackBarDisplay.MOVED_TO_TOP else SnackBarDisplay.MOVED_TO_BOTTOM
                 )
             }
@@ -213,5 +243,34 @@ class MainScreenVm @Inject constructor(
     fun onClickApp(ai: AppInfo) {
         lastSelectedApp = ai
         addAppToHistory(ai)
+    }
+
+    override fun onCleared() {
+        workRunnable?.let { handler.removeCallbacks(it) }
+        super.onCleared()
+    }
+
+    private fun getVisibleHomeApps(
+        apps: List<AppInfo>,
+        isShowingSystemApps: Boolean
+    ): List<AppInfo> {
+        if (isShowingSystemApps) return apps
+        return apps.filterNot { it.isSystemApp() && !it.isModified() }
+    }
+
+    private fun getSearchResults(
+        apps: List<AppInfo>,
+        query: String,
+        selectedLabels: Set<AppLabels>
+    ): List<AppInfo> {
+        if (query.isBlank()) return emptyList()
+        val lQuery = query.lowercase()
+        return apps.filter { app ->
+            if (selectedLabels.contains(AppLabels.MODIFIED) && !app.isModified())
+                return@filter false
+            if (!selectedLabels.contains(AppLabels.SYSTEM_APP) && app.isSystemApp())
+                return@filter false
+            app.pkg.lowercase().contains(lQuery) || app.name.lowercase().contains(lQuery)
+        }
     }
 }

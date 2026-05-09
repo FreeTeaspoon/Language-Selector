@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
@@ -43,7 +44,7 @@ fun AppSearchBar(
     history: List<AppInfo> = emptyList(),
     isExpanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
-    selectedLabels: List<AppLabels>,
+    selectedLabels: Set<AppLabels>,
     onSelectedLabelsChange: (AppLabels) -> Unit,
     onClickApp: (AppInfo) -> Unit,
     onClickClear: () -> Unit,
@@ -104,10 +105,10 @@ fun AppSearchBar(
                     }
                 }
 
-                items(apps.size) {
-                    val app = apps[it]
-                    if (filter(query, app, selectedLabels))
-                        return@items
+                items(
+                    items = apps,
+                    key = { it.pkg }
+                ) { app ->
                     AppListItem(
                         modifier = Modifier.padding(
                             start = 23.dp,
@@ -149,8 +150,10 @@ fun AppSearchBar(
                         Spacer(modifier = Modifier.padding(6.dp))
                     }
                 }
-                items(history.size) {
-                    val app = history[it]
+                items(
+                    items = history,
+                    key = { it.pkg }
+                ) { app ->
                     AppListItem(
                         modifier = Modifier.padding(
                             start = 23.dp,
@@ -189,13 +192,3 @@ fun AppSearchBar(
         }
 }
 
-fun filter(query: String, app: AppInfo, cLabels: List<AppLabels>): Boolean {
-    if (cLabels.contains(AppLabels.MODIFIED) && !app.labels.contains(AppLabels.MODIFIED))
-        return true
-
-    if (!cLabels.contains(AppLabels.SYSTEM_APP) && app.labels.contains(AppLabels.SYSTEM_APP))
-        return true
-
-    val lQuery = query.lowercase()
-    return !(app.pkg.lowercase().contains(lQuery) || app.name.lowercase().contains(lQuery))
-}

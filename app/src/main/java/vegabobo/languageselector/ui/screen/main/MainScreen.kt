@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -94,9 +95,9 @@ fun MainScreen(
                     query = uiState.searchTextFieldValue,
                     onClickApp = { mainScreenVm.onClickApp(it); navigateToAppScreen(it.pkg) },
                     history = uiState.history,
-                    apps = uiState.listOfApps,
+                    apps = uiState.searchResults,
                     isExpanded = uiState.isExpanded,
-                    onExpandedChange = { mainScreenVm.onSearchExpandedChange() },
+                    onExpandedChange = { mainScreenVm.onSearchExpandedChange(it) },
                     selectedLabels = uiState.selectLabels,
                     onSelectedLabelsChange = { mainScreenVm.onSelectedLabelChange(it) },
                     onClickClear = { mainScreenVm.onClickClear() },
@@ -127,10 +128,10 @@ fun MainScreen(
                                 .padding(top = 72.dp) /* 64 + 10 */
                         )
                     }
-                    items(uiState.listOfApps.size) {
-                        val thisApp = uiState.listOfApps[it]
-                        if (!uiState.isShowSystemAppsHome && thisApp.isSystemApp() && !thisApp.isModified())
-                            return@items
+                    items(
+                        items = uiState.visibleHomeApps,
+                        key = { it.pkg }
+                    ) { thisApp ->
                         AppListItem(
                             modifier = Modifier.padding(
                                 start = 26.dp,
