@@ -17,8 +17,8 @@ android {
         applicationId = "vegabobo.languageselector"
         minSdk = 33
         targetSdk = 37
-        versionCode = 6
-        versionName = "1.04.2"
+        versionCode = 7
+        versionName = "1.04.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -29,8 +29,8 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("debug")
-            isMinifyEnabled = true
-            isShrinkResources = true
+            isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
