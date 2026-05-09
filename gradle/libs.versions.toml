@@ -6,6 +6,7 @@ hilt = "2.58"
 hilt-navigation-compose = "1.2.0"
 material-icons-extended = "1.7.6"
 navigation-compose = "2.8.5"
+navigationevent = "1.0.2"
 room-compiler = "2.8.4"
 shizuku = "13.1.1"
 com-android-application = "8.13.2"
@@ -24,6 +25,8 @@ androidx-hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-com
 androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle-runtime-ktx" }
 androidx-material-icons-extended = { module = "androidx.compose.material:material-icons-extended", version.ref = "material-icons-extended" }
 androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigation-compose" }
+androidx-navigationevent = { module = "androidx.navigationevent:navigationevent", version.ref = "navigationevent" }
+androidx-navigationevent-compose = { module = "androidx.navigationevent:navigationevent-compose", version.ref = "navigationevent" }
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room-compiler" }
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room-compiler" }
 libsu-core = { module = "com.github.topjohnwu.libsu:core", version.ref = "libsu" }

@@ -17,8 +17,8 @@ android {
         applicationId = "vegabobo.languageselector"
         minSdk = 33
         targetSdk = 37
-        versionCode = 7
-        versionName = "1.04.3"
+        versionCode = 8
+        versionName = "1.04.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -29,8 +29,8 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("debug")
-            isMinifyEnabled = false
-            isShrinkResources = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -87,6 +87,8 @@ dependencies {
 
     implementation(libs.androidx.hilt.navigation.compose)
     implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.navigationevent)
+    implementation(libs.androidx.navigationevent.compose)
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
 

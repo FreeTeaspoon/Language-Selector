@@ -3,16 +3,23 @@ package vegabobo.languageselector
 import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
+import androidx.navigationevent.NavigationEventDispatcher
+import androidx.navigationevent.NavigationEventDispatcherOwner
+import androidx.navigationevent.NavigationEventInput
+import androidx.navigationevent.OnBackInvokedDefaultInput
+import androidx.navigationevent.compose.LocalNavigationEventDispatcherOwner
 import com.topjohnwu.superuser.Shell
 import com.topjohnwu.superuser.ipc.RootService
 import dagger.hilt.android.AndroidEntryPoint
@@ -37,7 +44,11 @@ object ShizukuArgs {
 
 
 @AndroidEntryPoint
-class MainActivity : ComponentActivity(), Shizuku.OnRequestPermissionResultListener {
+class MainActivity : ComponentActivity(), Shizuku.OnRequestPermissionResultListener,
+    NavigationEventDispatcherOwner {
+
+    override val navigationEventDispatcher = NavigationEventDispatcher()
+    private var navigationEventInput: NavigationEventInput? = null
 
     init {
         Shell.enableVerboseLogging = BuildConfig.DEBUG
@@ -71,9 +82,12 @@ class MainActivity : ComponentActivity(), Shizuku.OnRequestPermissionResultListe
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        attachNavigationEventInput()
         WindowCompat.setDecorFitsSystemWindows(window, false)
         setContent {
-            LanguageSelector { Navigation() }
+            CompositionLocalProvider(LocalNavigationEventDispatcherOwner provides this) {
+                LanguageSelector { Navigation() }
+            }
         }
 
         if (Shizuku.pingBinder() && savedInstanceState == null) {
@@ -102,6 +116,9 @@ class MainActivity : ComponentActivity(), Shizuku.OnRequestPermissionResultListe
 
     override fun onDestroy() {
         Shizuku.removeRequestPermissionResultListener(REQUEST_PERMISSION_RESULT_LISTENER)
+        navigationEventInput?.let(navigationEventDispatcher::removeInput)
+        navigationEventInput = null
+        navigationEventDispatcher.dispose()
         RootReceivedListener.destroy()
         if (UserServiceProvider.isConnected()) {
             when (UserServiceProvider.opMode) {
@@ -116,6 +133,14 @@ class MainActivity : ComponentActivity(), Shizuku.OnRequestPermissionResultListe
             }
         }
         super.onDestroy()
+    }
+
+    private fun attachNavigationEventInput() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            navigationEventInput = OnBackInvokedDefaultInput(onBackInvokedDispatcher).also {
+                navigationEventDispatcher.addInput(it)
+            }
+        }
     }
 
 }
