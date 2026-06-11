@@ -1,10 +1,10 @@
 package vegabobo.languageselector.ui.screen.main
 
-import android.app.Application
-import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.topjohnwu.superuser.Shell
@@ -13,101 +13,177 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import rikka.shizuku.Shizuku
 import vegabobo.languageselector.BuildConfig
 import vegabobo.languageselector.RootReceivedListener
 import vegabobo.languageselector.dao.AppInfoDb
-import vegabobo.languageselector.service.UserServiceProvider
+import vegabobo.languageselector.data.apps.AppRepository
+import vegabobo.languageselector.data.locales.LocaleRepository
+import vegabobo.languageselector.domain.apps.AppInfo
+import vegabobo.languageselector.domain.apps.AppLabels
+import vegabobo.languageselector.domain.apps.AppListLogic
+import vegabobo.languageselector.domain.apps.LoadAppsUseCase
+import vegabobo.languageselector.domain.apps.ModifiedState
+import vegabobo.languageselector.domain.apps.RefreshAppLocaleStatesUseCase
 import javax.inject.Inject
-
 
 @HiltViewModel
 class MainScreenVm @Inject constructor(
-    val app: Application,
+    private val loadAppsUseCase: LoadAppsUseCase,
+    private val refreshAppLocaleStatesUseCase: RefreshAppLocaleStatesUseCase,
+    private val appRepository: AppRepository,
+    private val localeRepository: LocaleRepository,
     appInfoDb: AppInfoDb
 ) : ViewModel() {
+    private companion object {
+        const val PERF_TAG = "LanguageSelectorPerf"
+    }
+
     private val _uiState = MutableStateFlow(MainScreenState())
     val uiState: StateFlow<MainScreenState> = _uiState.asStateFlow()
     var lastSelectedApp: AppInfo? = null
-    val dao = appInfoDb.appInfoDao()
+    private val dao = appInfoDb.appInfoDao()
+
+    private val handler = Handler(Looper.getMainLooper())
+    private var workRunnable: Runnable? = null
+    private val searchDebounceMillis = 150L
+
+    init {
+        loadApps()
+    }
 
     fun getIndexFromAppInfoItem(): Int {
         return _uiState.value.visibleHomeApps.indexOfFirst { it.pkg == lastSelectedApp?.pkg }
     }
 
-    fun loadOperationMode() {
-        if (Shell.getShell().isAlive)
-            Shell.getShell().close()
-        Shell.getShell()
-        if (Shell.isAppGrantedRoot() == true) {
-            _uiState.update { it.copy(operationMode = OperationMode.ROOT) }
-            RootReceivedListener.onRootReceived()
-            return
-        }
-
-        val isAvail = Shizuku.pingBinder() &&
-                Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
-        if (isAvail) {
-            _uiState.update { it.copy(operationMode = OperationMode.SHIZUKU) }
-            return
-        }
-
-        _uiState.update { it.copy(operationMode = OperationMode.NONE) }
-    }
-
-    init {
-        fillListOfApps()
-    }
-
-    fun parseAppInfo(a: ApplicationInfo): AppInfo {
-        val isSystemApp = (a.flags and ApplicationInfo.FLAG_SYSTEM) != 0
-        val service = UserServiceProvider.getService()
-        val languagePreferences = service.getApplicationLocales(a.packageName)
-        val labels = arrayListOf<AppLabels>()
-        if (isSystemApp)
-            labels.add(AppLabels.SYSTEM_APP)
-        if (!languagePreferences.isEmpty)
-            labels.add(AppLabels.MODIFIED)
-        return AppInfo(
-            icon = app.packageManager.getAppIconBitmap(a),
-            name = app.packageManager.getLabel(a),
-            pkg = a.packageName,
-            labels = labels
-        )
-    }
-
-    fun fillListOfApps() {
+    private fun loadApps() {
         viewModelScope.launch(Dispatchers.IO) {
-            if (_uiState.value.operationMode == OperationMode.NONE)
-                loadOperationMode()
-            val packageList = getInstalledPackages().map { parseAppInfo(it) }
-            val sortedList =
-                packageList.sortedBy { it.name.lowercase() }.sortedBy { !it.isModified() }
+            val metadataStart = SystemClock.elapsedRealtime()
+            val apps = loadAppsUseCase()
+            logPerf("metadata load: ${apps.size} apps in ${SystemClock.elapsedRealtime() - metadataStart}ms")
+            val sortedApps = AppListLogic.sortApps(apps, prioritizeModified = false)
             _uiState.update {
                 it.copy(
-                    listOfApps = sortedList,
-                    visibleHomeApps = getVisibleHomeApps(sortedList, it.isShowSystemAppsHome),
-                    searchResults = getSearchResults(
-                        sortedList,
+                    listOfApps = sortedApps,
+                    visibleHomeApps = AppListLogic.visibleHomeApps(
+                        sortedApps,
+                        it.isShowSystemAppsHome
+                    ),
+                    searchResults = AppListLogic.searchResults(
+                        sortedApps,
                         it.searchTextFieldValue,
                         it.selectLabels
                     ),
                     isLoading = false
                 )
             }
+            refreshOperationModeAndLocaleStates()
         }
     }
 
-    fun getInstalledPackages(): List<ApplicationInfo> {
-        return app.packageManager.getInstalledApplications(
-            PackageManager.ApplicationInfoFlags.of(0)
-        ).mapNotNull {
-            if (!it.enabled || BuildConfig.APPLICATION_ID == it.packageName)
-                null
-            else
-                it
+    fun loadOperationMode() {
+        viewModelScope.launch(Dispatchers.IO) {
+            refreshOperationModeAndLocaleStates()
+        }
+    }
+
+    private suspend fun refreshOperationModeAndLocaleStates() {
+        val modeStart = SystemClock.elapsedRealtime()
+        val operationMode = resolveOperationMode()
+        logPerf("service mode resolved: $operationMode in ${SystemClock.elapsedRealtime() - modeStart}ms")
+        _uiState.update { it.copy(operationMode = operationMode) }
+
+        val currentApps = _uiState.value.listOfApps
+        if (currentApps.isEmpty()) return
+
+        if (operationMode == OperationMode.NONE) {
+            applyLocaleUpdates(
+                currentApps.map { it.copy(modifiedState = ModifiedState.Unavailable) },
+                prioritizeModified = false,
+                refreshComplete = true
+            )
+            logPerf("locale refresh skipped: service unavailable")
+            return
+        }
+
+        _uiState.update { it.copy(isLocaleRefreshRunning = true) }
+        val refreshStart = SystemClock.elapsedRealtime()
+        var refreshedApps = 0
+        refreshAppLocaleStatesUseCase(currentApps).collect { updates ->
+            refreshedApps += updates.size
+            logPerf("locale refresh batch: ${updates.size} apps, total=$refreshedApps")
+            applyLocaleUpdates(
+                updates = updates,
+                prioritizeModified = false,
+                refreshComplete = false
+            )
+        }
+        _uiState.update {
+            val sortedApps = AppListLogic.sortApps(it.listOfApps, prioritizeModified = true)
+            it.copy(
+                listOfApps = sortedApps,
+                visibleHomeApps = AppListLogic.visibleHomeApps(
+                    sortedApps,
+                    it.isShowSystemAppsHome
+                ),
+                searchResults = AppListLogic.searchResults(
+                    sortedApps,
+                    it.searchTextFieldValue,
+                    it.selectLabels
+                ),
+                isLocaleRefreshRunning = false
+            )
+        }
+        logPerf("locale refresh complete: $refreshedApps apps in ${SystemClock.elapsedRealtime() - refreshStart}ms")
+    }
+
+    private suspend fun resolveOperationMode(): OperationMode {
+        val hasRoot = runCatching {
+            if (Shell.getShell().isAlive) {
+                Shell.getShell().close()
+            }
+            Shell.getShell()
+            Shell.isAppGrantedRoot() == true
+        }.getOrDefault(false)
+
+        if (hasRoot) {
+            RootReceivedListener.onRootReceived()
+            return OperationMode.ROOT
+        }
+
+        val hasShizuku = Shizuku.pingBinder() &&
+            Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
+        return if (hasShizuku) OperationMode.SHIZUKU else OperationMode.NONE
+    }
+
+    private fun applyLocaleUpdates(
+        updates: List<AppInfo>,
+        prioritizeModified: Boolean,
+        refreshComplete: Boolean
+    ) {
+        if (updates.isEmpty()) return
+        _uiState.update { state ->
+            val updatesByPackage = updates.associateBy { it.pkg }
+            val mergedApps = state.listOfApps.map { app ->
+                updatesByPackage[app.pkg] ?: app
+            }
+            val sortedApps = AppListLogic.sortApps(mergedApps, prioritizeModified)
+            state.copy(
+                listOfApps = sortedApps,
+                visibleHomeApps = AppListLogic.visibleHomeApps(
+                    sortedApps,
+                    state.isShowSystemAppsHome
+                ),
+                searchResults = AppListLogic.searchResults(
+                    sortedApps,
+                    state.searchTextFieldValue,
+                    state.selectLabels
+                ),
+                isLocaleRefreshRunning = !refreshComplete
+            )
         }
     }
 
@@ -121,7 +197,7 @@ class MainScreenVm @Inject constructor(
         _uiState.update {
             it.copy(
                 isShowSystemAppsHome = newShowSystemApps,
-                visibleHomeApps = getVisibleHomeApps(it.listOfApps, newShowSystemApps)
+                visibleHomeApps = AppListLogic.visibleHomeApps(it.listOfApps, newShowSystemApps)
             )
         }
         toggleDropdown()
@@ -131,19 +207,20 @@ class MainScreenVm @Inject constructor(
         loadOperationMode()
     }
 
-    private val handler = Handler(Looper.getMainLooper())
-    private var workRunnable: Runnable? = null
-    private val searchDebounceMillis = 150L
-
     fun onSearchTextFieldChange(newText: String) {
         _uiState.update { it.copy(searchTextFieldValue = newText) }
 
-        if (workRunnable != null)
-            handler.removeCallbacks(workRunnable!!)
+        workRunnable?.let(handler::removeCallbacks)
 
         workRunnable = Runnable {
             _uiState.update {
-                it.copy(searchResults = getSearchResults(it.listOfApps, newText, it.selectLabels))
+                it.copy(
+                    searchResults = AppListLogic.searchResults(
+                        it.listOfApps,
+                        newText,
+                        it.selectLabels
+                    )
+                )
             }
         }
         handler.postDelayed(workRunnable!!, searchDebounceMillis)
@@ -151,26 +228,28 @@ class MainScreenVm @Inject constructor(
 
     fun onSearchExpandedChange(isExpanded: Boolean) {
         _uiState.update { it.copy(isExpanded = isExpanded) }
-        if (isExpanded)
+        if (isExpanded) {
             updateHistory()
-        else
+        } else {
             _uiState.update {
                 it.copy(
                     searchTextFieldValue = "",
                     searchResults = emptyList()
                 )
             }
+        }
     }
 
     fun onSelectedLabelChange(label: AppLabels) {
         _uiState.update {
-            val selectedLabels = if (it.selectLabels.contains(label))
+            val selectedLabels = if (it.selectLabels.contains(label)) {
                 it.selectLabels - label
-            else
+            } else {
                 it.selectLabels + label
+            }
             it.copy(
                 selectLabels = selectedLabels,
-                searchResults = getSearchResults(
+                searchResults = AppListLogic.searchResults(
                     it.listOfApps,
                     it.searchTextFieldValue,
                     selectedLabels
@@ -183,12 +262,7 @@ class MainScreenVm @Inject constructor(
         viewModelScope.launch(Dispatchers.IO) {
             val appInfoList = dao.getHistory().map { it.pkg }
             val history = appInfoList.mapNotNull { pkg ->
-                val listOfApps = _uiState.value.listOfApps
-                val idx = listOfApps.indexOfFirst { it.pkg == pkg }
-                if (idx == -1)
-                    null
-                else
-                    listOfApps[idx]
+                _uiState.value.listOfApps.firstOrNull { it.pkg == pkg }
             }
             _uiState.update { it.copy(history = history) }
         }
@@ -212,33 +286,48 @@ class MainScreenVm @Inject constructor(
     }
 
     fun reloadLastSelectedItem() {
-        if (lastSelectedApp == null) return
-        val pkg = app.packageManager.getApplicationInfo(lastSelectedApp!!.pkg, 0)
-        val updatedAi = parseAppInfo(pkg)
-        val apps = _uiState.value.listOfApps
-        val idx = apps.indexOfFirst { it.pkg == updatedAi.pkg }
-        if (idx != -1 && updatedAi.labels != apps[idx].labels) {
-            val appsWithUpdate = apps.toMutableList()
-            appsWithUpdate[idx] = updatedAi
-            val newList = appsWithUpdate.sortedBy { it.name.lowercase() }
-                .sortedBy { !it.isModified() }.toMutableList()
-            _uiState.update {
-                it.copy(
-                    listOfApps = newList,
-                    visibleHomeApps = getVisibleHomeApps(newList, it.isShowSystemAppsHome),
-                    searchResults = getSearchResults(
-                        newList,
-                        it.searchTextFieldValue,
-                        it.selectLabels
-                    ),
-                    snackBarDisplay = if (updatedAi.isModified()) SnackBarDisplay.MOVED_TO_TOP else SnackBarDisplay.MOVED_TO_BOTTOM
+        val selectedApp = lastSelectedApp ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            val baseApp = runCatching { appRepository.loadApp(selectedApp.pkg) }.getOrNull() ?: return@launch
+            val updatedAi = baseApp.copy(
+                modifiedState = localeRepository.getModifiedState(baseApp.pkg)
+            )
+            val apps = _uiState.value.listOfApps
+            val idx = apps.indexOfFirst { it.pkg == updatedAi.pkg }
+            if (idx != -1 && updatedAi.modifiedState != apps[idx].modifiedState) {
+                val appsWithUpdate = apps.toMutableList()
+                appsWithUpdate[idx] = updatedAi
+                val sortedApps = AppListLogic.sortApps(
+                    appsWithUpdate,
+                    prioritizeModified = !_uiState.value.isLocaleRefreshRunning
                 )
+                lastSelectedApp = updatedAi
+                _uiState.update {
+                    it.copy(
+                        listOfApps = sortedApps,
+                        visibleHomeApps = AppListLogic.visibleHomeApps(
+                            sortedApps,
+                            it.isShowSystemAppsHome
+                        ),
+                        searchResults = AppListLogic.searchResults(
+                            sortedApps,
+                            it.searchTextFieldValue,
+                            it.selectLabels
+                        ),
+                        snackBarDisplay = if (updatedAi.isModified()) {
+                            SnackBarDisplay.MOVED_TO_TOP
+                        } else {
+                            SnackBarDisplay.MOVED_TO_BOTTOM
+                        }
+                    )
+                }
             }
-            return
         }
     }
 
-    fun resetSnackBarDisplay() = _uiState.update { it.copy(snackBarDisplay = SnackBarDisplay.NONE) }
+    fun resetSnackBarDisplay() = _uiState.update {
+        it.copy(snackBarDisplay = SnackBarDisplay.NONE)
+    }
 
     fun onClickApp(ai: AppInfo) {
         lastSelectedApp = ai
@@ -250,27 +339,9 @@ class MainScreenVm @Inject constructor(
         super.onCleared()
     }
 
-    private fun getVisibleHomeApps(
-        apps: List<AppInfo>,
-        isShowingSystemApps: Boolean
-    ): List<AppInfo> {
-        if (isShowingSystemApps) return apps
-        return apps.filterNot { it.isSystemApp() && !it.isModified() }
-    }
-
-    private fun getSearchResults(
-        apps: List<AppInfo>,
-        query: String,
-        selectedLabels: Set<AppLabels>
-    ): List<AppInfo> {
-        if (query.isBlank()) return emptyList()
-        val lQuery = query.lowercase()
-        return apps.filter { app ->
-            if (selectedLabels.contains(AppLabels.MODIFIED) && !app.isModified())
-                return@filter false
-            if (!selectedLabels.contains(AppLabels.SYSTEM_APP) && app.isSystemApp())
-                return@filter false
-            app.pkg.lowercase().contains(lQuery) || app.name.lowercase().contains(lQuery)
+    private fun logPerf(message: String) {
+        if (BuildConfig.DEBUG) {
+            Log.d(PERF_TAG, message)
         }
     }
 }

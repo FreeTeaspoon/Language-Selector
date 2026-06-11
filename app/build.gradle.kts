@@ -2,11 +2,11 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.com.android.application)
-    alias(libs.plugins.org.jetbrains.kotlin.android)
     alias(libs.plugins.com.google.devtools.ksp)
     alias(libs.plugins.com.google.dagger.hilt)
     alias(libs.plugins.com.mikepenz.aboutlibraries)
     alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -67,6 +67,10 @@ aboutLibraries {
     excludeFields = arrayOf("generated")
 }
 
+hilt {
+    enableAggregatingTask = false
+}
+
 dependencies {
     debugImplementation(libs.ui.tooling)
     debugImplementation(libs.ui.test.manifest)
@@ -84,13 +88,17 @@ dependencies {
     implementation(libs.miuix.ui)
     implementation(libs.miuix.icons)
     implementation(libs.miuix.preference)
+    implementation(libs.miuix.navigation3.ui)
+    implementation(libs.appiconloader)
+    implementation(libs.kotlinx.serialization.json)
 
     implementation(libs.androidx.hilt.navigation.compose)
-    implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.navigation3.runtime)
     implementation(libs.androidx.navigationevent)
     implementation(libs.androidx.navigationevent.compose)
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.navigation3)
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.android.compiler)
@@ -106,4 +114,6 @@ dependencies {
     ksp(libs.androidx.room.compiler)
 
     compileOnly(project(":hidden_api"))
+
+    testImplementation(libs.junit)
 }

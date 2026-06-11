@@ -1,10 +1,9 @@
 package vegabobo.languageselector.ui.screen.appinfo
 
-import android.graphics.BitmapFactory
 import android.widget.Toast
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateContentSize
-import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,21 +24,26 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.graphics.drawable.toBitmap
 import androidx.hilt.navigation.compose.hiltViewModel
 import vegabobo.languageselector.R
+import vegabobo.languageselector.ui.components.AppIconImage
 import vegabobo.languageselector.ui.components.BackButton
 import vegabobo.languageselector.ui.components.LocaleItemList
 import vegabobo.languageselector.ui.components.QuickTextButton
 import vegabobo.languageselector.ui.components.Title
 import vegabobo.languageselector.ui.screen.BaseScreen
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.navigationevent.NavigationEventInfo
+import androidx.navigationevent.compose.NavigationBackHandler
+import androidx.navigationevent.compose.rememberNavigationEventState
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun AppInfoScreen(
@@ -51,6 +55,7 @@ fun AppInfoScreen(
     val ctx = LocalContext.current
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
+    val selectedLanguageBackState = rememberNavigationEventState(NavigationEventInfo.None)
 
     fun pinToast(locale: String) {
         val pinTxt =
@@ -87,14 +92,21 @@ fun AppInfoScreen(
                         .padding(start = 18.dp, end = 18.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Image(
-                        modifier = Modifier.size(84.dp),
-                        bitmap = uiState.appIcon?.toBitmap()?.asImageBitmap()
-                            ?: BitmapFactory.decodeResource(
-                                ctx.resources, R.drawable.icon_placeholder
-                            ).asImageBitmap(),
-                        contentDescription = "App icon"
-                    )
+                    if (uiState.applicationInfo != null) {
+                        AppIconImage(
+                            modifier = Modifier.size(84.dp),
+                            applicationInfo = uiState.applicationInfo!!,
+                            label = uiState.appName,
+                            size = 84.dp
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(84.dp)
+                                .clip(RoundedCornerShape(18.dp))
+                                .background(MiuixTheme.colorScheme.secondaryContainer)
+                        )
+                    }
                     Column(
                         modifier = Modifier
                             .padding(18.dp)
@@ -203,7 +215,10 @@ fun AppInfoScreen(
         }
     }
 
-    if (uiState.selectedLanguage != -1)
-        BackHandler { appInfoVm.onBackWhenSelectedLang() }
+    NavigationBackHandler(
+        state = selectedLanguageBackState,
+        isBackEnabled = uiState.selectedLanguage != -1,
+        onBackCompleted = { appInfoVm.onBackWhenSelectedLang() }
+    )
 
 }

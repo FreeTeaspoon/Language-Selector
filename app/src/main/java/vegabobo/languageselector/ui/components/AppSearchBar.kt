@@ -1,6 +1,5 @@
 package vegabobo.languageselector.ui.components
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,13 +21,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigationevent.NavigationEventInfo
+import androidx.navigationevent.compose.NavigationBackHandler
+import androidx.navigationevent.compose.rememberNavigationEventState
 import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.SearchBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import vegabobo.languageselector.ui.screen.main.AppInfo
-import vegabobo.languageselector.ui.screen.main.AppLabels
+import vegabobo.languageselector.R
+import vegabobo.languageselector.domain.apps.AppInfo
+import vegabobo.languageselector.domain.apps.AppLabels
 
 @Composable
 fun AppSearchBar(
@@ -41,11 +44,14 @@ fun AppSearchBar(
     isExpanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
     selectedLabels: Set<AppLabels>,
+    isRefreshingAppStates: Boolean,
     onSelectedLabelsChange: (AppLabels) -> Unit,
     onClickApp: (AppInfo) -> Unit,
     onClickClear: () -> Unit,
     actions: @Composable RowScope.() -> Unit,
 ) {
+    val searchBackState = rememberNavigationEventState(NavigationEventInfo.None)
+
     Box(
         modifier = Modifier
             .semantics { isTraversalGroup = true }
@@ -101,6 +107,22 @@ fun AppSearchBar(
                                 title = "Show Modified",
                                 onClick = { onSelectedLabelsChange(AppLabels.MODIFIED) },
                                 isSelected = selectedLabels.contains(AppLabels.MODIFIED)
+                            )
+                        }
+                    }
+
+                    if (
+                        isRefreshingAppStates &&
+                        selectedLabels.contains(AppLabels.MODIFIED)
+                    ) {
+                        item {
+                            Text(
+                                text = androidx.compose.ui.res.stringResource(
+                                    R.string.refreshing_app_states
+                                ),
+                                style = MiuixTheme.textStyles.body2,
+                                color = MiuixTheme.colorScheme.onSurfaceSecondary,
+                                modifier = Modifier.padding(horizontal = 23.dp, vertical = 6.dp)
                             )
                         }
                     }
@@ -188,8 +210,15 @@ fun AppSearchBar(
         }
     }
 
-    if (query.isNotBlank())
-        BackHandler {
-            onUpdatedValue("")
+    NavigationBackHandler(
+        state = searchBackState,
+        isBackEnabled = isExpanded || query.isNotBlank(),
+        onBackCompleted = {
+            if (query.isNotBlank()) {
+                onUpdatedValue("")
+            } else {
+                onExpandedChange(false)
+            }
         }
+    )
 }

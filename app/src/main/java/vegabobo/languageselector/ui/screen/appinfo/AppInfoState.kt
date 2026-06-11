@@ -1,6 +1,6 @@
 package vegabobo.languageselector.ui.screen.appinfo
 
-import android.graphics.drawable.Drawable
+import android.content.pm.ApplicationInfo
 import androidx.compose.runtime.mutableStateListOf
 import java.util.Locale
 
@@ -19,7 +19,7 @@ data class SingleLocale(
 }
 
 data class AppInfoState(
-    val appIcon: Drawable? = null,
+    val applicationInfo: ApplicationInfo? = null,
     val appName: String = "",
     val appPackage: String = "",
     val currentLanguage: String = "",

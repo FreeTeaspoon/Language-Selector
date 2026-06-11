@@ -11,6 +11,7 @@ class Connection : ServiceConnection {
     fun set(service: IUserService?) {
         if (SERVICE == null) {
             SERVICE = service
+            UserServiceConnector.update(service)
         }
     }
 
@@ -20,5 +21,6 @@ class Connection : ServiceConnection {
 
     override fun onServiceDisconnected(name: ComponentName?) {
         SERVICE = null
+        UserServiceConnector.update(null)
     }
 }

@@ -1,8 +1,6 @@
 package vegabobo.languageselector.ui.components
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,13 +15,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import vegabobo.languageselector.ui.screen.main.AppInfo
+import top.yukonga.miuix.kmp.utils.PressFeedbackType
+import vegabobo.languageselector.domain.apps.AppInfo
 
 @Composable
 fun AppListItem(
@@ -32,38 +32,51 @@ fun AppListItem(
     onClickApp: (String) -> Unit
 ) {
     Card(
-        modifier = Modifier
-            .clickable { onClickApp(app.pkg) }
-            .then(modifier),
+        modifier = modifier,
         colors = CardDefaults.defaultColors(
             color = MiuixTheme.colorScheme.surfaceContainer
-        )
+        ),
+        pressFeedbackType = PressFeedbackType.Sink,
+        showIndication = true,
+        onClick = { onClickApp(app.pkg) }
     ) {
         Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Image(
-            modifier = Modifier.size(32.dp),
-            bitmap = app.icon,
-            contentDescription = "app icon"
-        )
-        Spacer(modifier = Modifier.padding(8.dp))
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy((-4).dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = app.name, fontSize = 18.sp, fontWeight = FontWeight.Medium, maxLines = 1)
-            Text(text = app.pkg, fontSize = 12.sp, maxLines = 1)
-            Row {
-                TextLabel(text = if (app.isSystemApp()) "System App" else "User App")
-                if (app.isModified())
-                    TextLabel(text = "Modified")
+            AppIconImage(
+                modifier = Modifier.size(36.dp),
+                applicationInfo = app.applicationInfo,
+                label = app.name
+            )
+            Spacer(modifier = Modifier.padding(8.dp))
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy((-4).dp)
+            ) {
+                Text(
+                    text = app.name,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = app.pkg,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Row {
+                    TextLabel(text = if (app.isSystemApp()) "System App" else "User App")
+                    if (app.isModified()) {
+                        TextLabel(text = "Modified")
+                    }
+                }
             }
         }
-    }
     }
 }
 

@@ -3,10 +3,9 @@ package vegabobo.languageselector.ui.screen.main
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.core.graphics.drawable.toBitmap
 import vegabobo.languageselector.dao.AppInfoEntity
+import vegabobo.languageselector.domain.apps.AppInfo
+import vegabobo.languageselector.domain.apps.AppLabels
 
 enum class OperationMode {
     NONE, SHIZUKU, ROOT
@@ -25,6 +24,7 @@ data class MainScreenState(
     val isDropdownVisible: Boolean = false,
     val isAboutDialogVisible: Boolean = false,
     val isLoading: Boolean = true,
+    val isLocaleRefreshRunning: Boolean = false,
     val isShowSystemAppsHome: Boolean = false,
     val snackBarDisplay: SnackBarDisplay = SnackBarDisplay.NONE,
 
@@ -33,20 +33,6 @@ data class MainScreenState(
     val searchTextFieldValue: String = "",
     val selectLabels: Set<AppLabels> = emptySet()
 )
-
-enum class AppLabels {
-    SYSTEM_APP, MODIFIED
-}
-
-data class AppInfo(
-    val icon: ImageBitmap,
-    val name: String,
-    val pkg: String,
-    val labels: List<AppLabels> = emptyList()
-) {
-    fun isSystemApp() = labels.contains(AppLabels.SYSTEM_APP)
-    fun isModified() = labels.contains(AppLabels.MODIFIED)
-}
 
 fun AppInfo.toAppInfoEntity(): AppInfoEntity {
     return AppInfoEntity(this.pkg, this.name, System.currentTimeMillis())
@@ -58,8 +44,4 @@ fun PackageManager.getLabel(applicationInfo: ApplicationInfo): String {
 
 fun PackageManager.getAppIcon(applicationInfo: ApplicationInfo): Drawable {
     return this.getApplicationIcon(applicationInfo)
-}
-
-fun PackageManager.getAppIconBitmap(applicationInfo: ApplicationInfo): ImageBitmap {
-    return getAppIcon(applicationInfo).toBitmap().asImageBitmap()
 }

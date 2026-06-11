@@ -87,6 +87,7 @@ fun MainScreen(
                     isExpanded = uiState.isExpanded,
                     onExpandedChange = { mainScreenVm.onSearchExpandedChange(it) },
                     selectedLabels = uiState.selectLabels,
+                    isRefreshingAppStates = uiState.isLocaleRefreshRunning,
                     onSelectedLabelsChange = { mainScreenVm.onSelectedLabelChange(it) },
                     onClickClear = { mainScreenVm.onClickClear() },
                     actions = {

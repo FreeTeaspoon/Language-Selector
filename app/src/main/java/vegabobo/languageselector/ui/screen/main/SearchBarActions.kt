@@ -1,6 +1,5 @@
 package vegabobo.languageselector.ui.screen.main
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,6 +22,7 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.More
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.PressFeedbackType
 import vegabobo.languageselector.R
 
 @Composable
@@ -99,12 +99,22 @@ private fun PopupItem(
     text: String,
     onClick: () -> Unit
 ) {
-    Text(
-        text = text,
+    Card(
         modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 18.dp, vertical = 14.dp),
-        color = MiuixTheme.colorScheme.onSurface
-    )
+            .fillMaxWidth(),
+        colors = CardDefaults.defaultColors(
+            color = MiuixTheme.colorScheme.surfaceContainerHigh
+        ),
+        pressFeedbackType = PressFeedbackType.Sink,
+        showIndication = true,
+        onClick = onClick
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp, vertical = 14.dp),
+            color = MiuixTheme.colorScheme.onSurface
+        )
+    }
 }
