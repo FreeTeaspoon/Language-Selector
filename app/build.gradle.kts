@@ -17,8 +17,8 @@ android {
         applicationId = "vegabobo.languageselector"
         minSdk = 33
         targetSdk = 37
-        versionCode = 8
-        versionName = "1.04.4"
+        versionCode = 9
+        versionName = "1.04.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
