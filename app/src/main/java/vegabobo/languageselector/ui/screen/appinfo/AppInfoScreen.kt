@@ -27,8 +27,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import vegabobo.languageselector.R
 import vegabobo.languageselector.ui.components.AppIconImage
@@ -89,35 +89,48 @@ fun AppInfoScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = 18.dp, end = 18.dp),
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (uiState.applicationInfo != null) {
                         AppIconImage(
-                            modifier = Modifier.size(84.dp),
+                            modifier = Modifier.size(72.dp),
                             applicationInfo = uiState.applicationInfo!!,
                             label = uiState.appName,
-                            size = 84.dp
+                            size = 72.dp
                         )
                     } else {
                         Box(
                             modifier = Modifier
-                                .size(84.dp)
-                                .clip(RoundedCornerShape(18.dp))
+                                .size(72.dp)
+                                .clip(RoundedCornerShape(16.dp))
                                 .background(MiuixTheme.colorScheme.secondaryContainer)
                         )
                     }
                     Column(
                         modifier = Modifier
-                            .padding(18.dp)
+                            .padding(start = 16.dp)
                             .weight(1f)
                     ) {
-                        Text(text = uiState.appName, fontSize = 22.sp, maxLines = 1)
-                        Text(text = uiState.appPackage, fontSize = 14.sp, maxLines = 1)
+                        Text(
+                            text = uiState.appName,
+                            style = MiuixTheme.textStyles.title2,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = uiState.appPackage,
+                            style = MiuixTheme.textStyles.body2,
+                            color = MiuixTheme.colorScheme.onSurfaceSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                         Text(
                             text = uiState.currentLanguage.ifEmpty { stringResource(R.string.system_default) },
-                            fontSize = 14.sp,
-                            maxLines = 1
+                            style = MiuixTheme.textStyles.body2,
+                            color = MiuixTheme.colorScheme.onSurfaceSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -127,9 +140,9 @@ fun AppInfoScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(8.dp),
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     QuickTextButton(
                         modifier = Modifier.weight(1f),

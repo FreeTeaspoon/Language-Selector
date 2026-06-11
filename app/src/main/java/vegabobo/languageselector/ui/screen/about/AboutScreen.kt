@@ -3,26 +3,21 @@ package vegabobo.languageselector.ui.screen.about
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
 import vegabobo.languageselector.R
 import vegabobo.languageselector.ui.components.BackButton
@@ -32,22 +27,19 @@ import vegabobo.languageselector.ui.screen.main.getAppIcon
 import com.mikepenz.aboutlibraries.Libs
 import com.mikepenz.aboutlibraries.util.withContext
 import vegabobo.languageselector.BuildConfig
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.CardDefaults
-import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.PressFeedbackType
 
 @Composable
 fun AboutScreen(
     navigateBack: () -> Unit
 ) {
-    val libs = remember { mutableStateOf<Libs?>(null) }
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
-    libs.value = Libs.Builder().withContext(context).build()
-    val libraries = libs.value!!.libraries
+    val libraries = remember(context) {
+        Libs.Builder().withContext(context).build().libraries
+    }
 
     BaseScreen(
         title = stringResource(R.string.about),
@@ -65,13 +57,16 @@ fun AboutScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Image(
-                        modifier = Modifier.size(96.dp),
+                        modifier = Modifier.size(88.dp),
                         bitmap = context.packageManager
                             .getAppIcon(context.applicationInfo)
                             .toBitmap().asImageBitmap(),
                         contentDescription = "App icon"
                     )
-                    Text(text = stringResource(R.string.app_name), fontSize = 22.sp)
+                    Text(
+                        text = stringResource(R.string.app_name),
+                        style = MiuixTheme.textStyles.title2
+                    )
                     Text(
                         stringResource(R.string.version).format(
                             BuildConfig.VERSION_NAME,
@@ -118,56 +113,15 @@ fun AboutScreen(
 fun PreferenceItem(
     title: String,
     description: String,
-    icon: ImageVector? = null,
     onClick: () -> Unit
 ) {
-    Card(
+    BasicComponent(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(
-                start = 24.dp,
-                end = 24.dp,
-                top = 4.dp,
-                bottom = 4.dp
-            ),
-        colors = CardDefaults.defaultColors(
-            color = MiuixTheme.colorScheme.surfaceContainer
-        ),
-        pressFeedbackType = PressFeedbackType.Sink,
-        showIndication = true,
+            .padding(horizontal = 12.dp, vertical = 2.dp),
+        title = title,
+        summary = description.ifBlank { null },
+        holdDownState = true,
         onClick = onClick
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(
-                    start = 16.dp,
-                    top = 14.dp,
-                    bottom = 14.dp,
-                    end = 16.dp
-                )
-        ) {
-            if (icon != null) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    modifier = Modifier.padding(end = 16.dp),
-                )
-            }
-            Column {
-                Text(
-                    text = title,
-                    style = MiuixTheme.textStyles.title3,
-                    color = MiuixTheme.colorScheme.onSurface
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = description,
-                    style = MiuixTheme.textStyles.body2,
-                    color = MiuixTheme.colorScheme.onSurfaceSecondary
-                )
-            }
-        }
-    }
+    )
 }

@@ -4,7 +4,9 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -84,7 +86,9 @@ fun MainScreen(
                         top = searchBarHeight + 8.dp,
                         bottom = 8.dp
                     ),
-                    modifier = Modifier.semantics { traversalIndex = 1f }
+                    modifier = Modifier
+                        .navigationBarsPadding()
+                        .semantics { traversalIndex = 1f }
                 ) {
                     items(
                         items = uiState.visibleHomeApps,
@@ -92,10 +96,8 @@ fun MainScreen(
                     ) { thisApp ->
                         AppListItem(
                             modifier = Modifier.padding(
-                                start = 26.dp,
-                                end = 26.dp,
-                                top = 4.dp,
-                                bottom = 4.dp
+                                horizontal = 12.dp,
+                                vertical = 2.dp
                             ),
                             app = thisApp,
                             onClickApp = {
@@ -115,6 +117,7 @@ fun MainScreen(
                 AppSearchBar(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
+                        .statusBarsPadding()
                         .onSizeChanged { size ->
                             searchBarHeight = with(density) { size.height.toDp() }
                         }

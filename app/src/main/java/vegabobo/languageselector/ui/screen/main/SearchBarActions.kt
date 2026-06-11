@@ -1,28 +1,17 @@
 package vegabobo.languageselector.ui.screen.main
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupProperties
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.CardDefaults
+import top.yukonga.miuix.kmp.basic.DropdownImpl
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.ListPopupColumn
+import top.yukonga.miuix.kmp.basic.PopupPositionProvider
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.More
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.PressFeedbackType
+import top.yukonga.miuix.kmp.window.WindowListPopup
 import vegabobo.languageselector.R
 
 @Composable
@@ -34,87 +23,40 @@ fun SearchBarActions(
     onClickToggleSystemApps: () -> Unit,
     onClickAbout: () -> Unit
 ) {
-    Box(
-        modifier = Modifier.wrapContentSize(Alignment.Center)
-    ) {
-        ToolbarNormal(
-            onToggleDropdown = { onToggleDropdown() }
-        )
+    val systemAppsText = if (isShowingSystemApps) {
+        stringResource(R.string.show_only_user_apps)
+    } else {
+        stringResource(R.string.show_system_apps)
+    }
+    val aboutText = stringResource(R.string.about)
 
-        if (isDropdownVisible) {
-            Popup(
-                alignment = Alignment.TopEnd,
-                onDismissRequest = { onClickToggleDropdown() },
-                properties = PopupProperties(focusable = true)
-            ) {
-                Card(
-                    modifier = Modifier
-                        .padding(top = 46.dp, end = 4.dp)
-                        .width(238.dp),
-                    colors = CardDefaults.defaultColors(
-                        color = MiuixTheme.colorScheme.surfaceContainerHigh
+    Box {
+        IconButton(onClick = onToggleDropdown) {
+            Icon(
+                imageVector = MiuixIcons.Regular.More,
+                contentDescription = stringResource(R.string.more_options)
+            )
+        }
+        WindowListPopup(
+            show = isDropdownVisible,
+            alignment = PopupPositionProvider.Align.BottomEnd,
+            enableWindowDim = false,
+            onDismissRequest = onClickToggleDropdown
+        ) {
+            ListPopupColumn {
+                listOf(systemAppsText, aboutText).forEachIndexed { index, text ->
+                    DropdownImpl(
+                        text = text,
+                        optionSize = 2,
+                        isSelected = false,
+                        index = index,
+                        onSelectedIndexChange = {
+                            if (index == 0) onClickToggleSystemApps() else onClickAbout()
+                            onClickToggleDropdown()
+                        }
                     )
-                ) {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        PopupItem(
-                            text = if (isShowingSystemApps)
-                                stringResource(R.string.show_only_user_apps)
-                            else
-                                stringResource(R.string.show_system_apps),
-                            onClick = {
-                                onClickToggleSystemApps()
-                                onClickToggleDropdown()
-                            }
-                        )
-                        PopupItem(
-                            text = stringResource(R.string.about),
-                            onClick = {
-                                onClickAbout()
-                                onClickToggleDropdown()
-                            }
-                        )
-                    }
                 }
             }
         }
-    }
-}
-
-@Composable
-fun ToolbarNormal(
-    onToggleDropdown: () -> Unit,
-) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = { onToggleDropdown() }) {
-            Icon(
-                imageVector = MiuixIcons.Regular.More,
-                contentDescription = "More icon"
-            )
-        }
-    }
-}
-
-@Composable
-private fun PopupItem(
-    text: String,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth(),
-        colors = CardDefaults.defaultColors(
-            color = MiuixTheme.colorScheme.surfaceContainerHigh
-        ),
-        pressFeedbackType = PressFeedbackType.Sink,
-        showIndication = true,
-        onClick = onClick
-    ) {
-        Text(
-            text = text,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 14.dp),
-            color = MiuixTheme.colorScheme.onSurface
-        )
     }
 }

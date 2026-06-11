@@ -29,5 +29,9 @@
     <string name="cancel">Cancel</string>
 
     <string name="search">Search apps</string>
+    <string name="history">History</string>
+    <string name="clear">Clear</string>
+    <string name="search_empty_hint">Type something to search</string>
+    <string name="more_options">More options</string>
     <string name="refreshing_app_states">Refreshing app states…</string>
 </resources>

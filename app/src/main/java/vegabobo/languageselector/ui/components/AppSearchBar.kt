@@ -17,15 +17,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.navigationevent.NavigationEventInfo
 import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.rememberNavigationEventState
 import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.SearchBar
+import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -88,7 +87,7 @@ fun AppSearchBar(
                         Row(
                             modifier = Modifier
                                 .padding(
-                                    start = 23.dp,
+                                    start = 16.dp,
                                     top = 8.dp,
                                     bottom = 8.dp,
                                     end = 8.dp
@@ -122,7 +121,7 @@ fun AppSearchBar(
                                 ),
                                 style = MiuixTheme.textStyles.body2,
                                 color = MiuixTheme.colorScheme.onSurfaceSecondary,
-                                modifier = Modifier.padding(horizontal = 23.dp, vertical = 6.dp)
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
                             )
                         }
                     }
@@ -133,10 +132,8 @@ fun AppSearchBar(
                     ) { app ->
                         AppListItem(
                             modifier = Modifier.padding(
-                                start = 23.dp,
-                                end = 23.dp,
-                                top = 4.dp,
-                                bottom = 4.dp
+                                horizontal = 12.dp,
+                                vertical = 2.dp
                             ),
                             app = app,
                             onClickApp = { onClickApp(app) }
@@ -149,18 +146,14 @@ fun AppSearchBar(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center
                         ) {
-                            Text(
-                                text = "History".uppercase(),
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = MiuixTheme.colorScheme.onSurfaceSecondary,
-                                modifier = Modifier
-                                    .padding(start = 18.dp)
-                                    .padding(bottom = 8.dp)
-                                    .padding(top = 8.dp)
+                            SmallTitle(
+                                text = androidx.compose.ui.res.stringResource(R.string.history),
+                                modifier = Modifier.weight(1f)
                             )
-                            Spacer(modifier = Modifier.weight(1f))
-                            TextButton(text = "Clear", onClick = { onClickClear() })
+                            TextButton(
+                                text = androidx.compose.ui.res.stringResource(R.string.clear),
+                                onClick = onClickClear
+                            )
                             Spacer(modifier = Modifier.padding(6.dp))
                         }
                     }
@@ -170,10 +163,8 @@ fun AppSearchBar(
                     ) { app ->
                         AppListItem(
                             modifier = Modifier.padding(
-                                start = 23.dp,
-                                end = 23.dp,
-                                top = 4.dp,
-                                bottom = 4.dp
+                                horizontal = 12.dp,
+                                vertical = 2.dp
                             ),
                             app = app,
                             onClickApp = { onClickApp(app) }
@@ -191,7 +182,7 @@ fun AppSearchBar(
                                 .fillMaxWidth()
                                 .padding(10.dp)
                                 .alpha(0.4f),
-                            text = "Type something to search",
+                            text = androidx.compose.ui.res.stringResource(R.string.search_empty_hint),
                             textAlign = TextAlign.Center
                         )
                     }

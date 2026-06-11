@@ -38,7 +38,7 @@ fun QuickTextButton(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(18.dp),
+                .padding(horizontal = 12.dp, vertical = 14.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -49,7 +49,12 @@ fun QuickTextButton(
                 tint = MiuixTheme.colorScheme.primary
             )
             Spacer(modifier = Modifier.padding(2.dp))
-            Text(textAlign = TextAlign.Center, text = text, color = MiuixTheme.colorScheme.primary)
+            Text(
+                textAlign = TextAlign.Center,
+                text = text,
+                style = MiuixTheme.textStyles.body2,
+                color = MiuixTheme.colorScheme.primary
+            )
         }
     }
 }
