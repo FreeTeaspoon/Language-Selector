@@ -13,6 +13,7 @@ import vegabobo.languageselector.ui.screen.appinfo.PrefConstants
 import vegabobo.languageselector.ui.screen.appinfo.SingleLocale
 import vegabobo.languageselector.ui.screen.appinfo.capDisplayName
 import vegabobo.languageselector.ui.screen.appinfo.parseSetLangs
+import vegabobo.languageselector.ui.screen.main.OperationMode
 import vegabobo.languageselector.ui.screen.main.getLabel
 
 
@@ -112,9 +113,14 @@ class QSTile : TileService() {
         setDisabledTile()
 
         try {
-            if (!UserServiceProvider.isConnected())
-                Shizuku.bindUserService(ShizukuArgs.userServiceArgs, UserServiceProvider.connection)
+            val connection = UserServiceProvider.shizukuConnection
+            if (!UserServiceProvider.isConnected(OperationMode.SHIZUKU) &&
+                connection.markBindingRequested()
+            ) {
+                Shizuku.bindUserService(ShizukuArgs.userServiceArgs, connection)
+            }
         } catch (e: Exception) {
+            UserServiceProvider.shizukuConnection.clearBindingRequested()
             Log.e(
                 BuildConfig.APPLICATION_ID,
                 "Cannot bind UserService, non-fatal because it happened on QSTile.\n" + e.stackTraceToString()
@@ -136,19 +142,21 @@ class QSTile : TileService() {
         var shouldUnbind = true
         run {
             try {
-                val service = UserServiceProvider.connection.SERVICE ?: return@run
+                val service = UserServiceProvider.shizukuConnection.service ?: return@run
                 if (BuildConfig.APPLICATION_ID == service.firstRunningTaskPackage)
                     shouldUnbind = false
             } catch (e: Exception) {
                 //
             }
         }
-        if (UserServiceProvider.isConnected() && shouldUnbind)
+        if (UserServiceProvider.isConnected(OperationMode.SHIZUKU) && shouldUnbind) {
             Shizuku.unbindUserService(
                 ShizukuArgs.userServiceArgs,
-                UserServiceProvider.connection,
+                UserServiceProvider.shizukuConnection,
                 true
             )
+            UserServiceProvider.shizukuConnection.clear()
+        }
         super.onStopListening()
     }
 

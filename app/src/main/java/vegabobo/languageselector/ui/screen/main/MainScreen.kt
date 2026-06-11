@@ -36,6 +36,7 @@ fun MainScreen(
     mainScreenVm: MainScreenVm = hiltViewModel(),
     navigateToAppScreen: (String) -> Unit,
     navigateToAbout: () -> Unit,
+    requestShizukuAccess: () -> Unit,
 ) {
     val uiState by mainScreenVm.uiState.collectAsState()
     val sb = remember { SnackbarHostState() }
@@ -103,7 +104,9 @@ fun MainScreen(
                     })
 
                 if (uiState.operationMode == OperationMode.NONE) {
-                    ShizukuRequiredWarning { mainScreenVm.onClickProceedShizuku() }
+                    ShizukuRequiredWarning {
+                        requestShizukuAccess()
+                    }
                 }
 
                 LazyColumn(

@@ -58,49 +58,77 @@ class MainActivity : ComponentActivity(), Shizuku.OnRequestPermissionResultListe
     val acRequestCode = 1
 
     fun bindShizuku() {
-        Shizuku.bindUserService(ShizukuArgs.userServiceArgs, UserServiceProvider.connection)
+        val connection = UserServiceProvider.shizukuConnection
+        if (!connection.markBindingRequested()) return
+        runCatching {
+            Shizuku.bindUserService(ShizukuArgs.userServiceArgs, connection)
+        }.onFailure {
+            connection.clearBindingRequested()
+            Log.e(BuildConfig.APPLICATION_ID, "Failed to bind Shizuku user service", it)
+        }
+    }
+
+    private fun bindRoot() {
+        val connection = UserServiceProvider.rootConnection
+        if (!connection.markBindingRequested()) return
+        runOnUiThread {
+            runCatching {
+                val intent = Intent(application, RootUserService::class.java)
+                RootService.bind(intent, connection)
+            }.onFailure {
+                connection.clearBindingRequested()
+                Log.e(BuildConfig.APPLICATION_ID, "Failed to bind root user service", it)
+            }
+        }
     }
 
     private val REQUEST_PERMISSION_RESULT_LISTENER = this::onRequestPermissionResult
 
     override fun onRequestPermissionResult(requestCode: Int, grantResult: Int) {
-        if (grantResult == PackageManager.PERMISSION_GRANTED)
+        if (requestCode == acRequestCode && grantResult == PackageManager.PERMISSION_GRANTED) {
             bindShizuku()
+        }
     }
 
-    private fun checkPermission(code: Int): Boolean {
-        return if (Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) {
+    fun requestShizukuAccess() {
+        if (!Shizuku.pingBinder()) return
+        if (Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) {
             bindShizuku()
-            true
-        } else if (Shizuku.shouldShowRequestPermissionRationale()) {
-            false
-        } else {
-            Shizuku.requestPermission(code)
-            false
+            return
+        }
+        if (!Shizuku.shouldShowRequestPermissionRationale()) {
+            Shizuku.requestPermission(acRequestCode)
+        }
+    }
+
+    private fun bindGrantedShizuku() {
+        if (
+            Shizuku.pingBinder() &&
+            Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
+        ) {
+            bindShizuku()
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         attachNavigationEventInput()
+        Shizuku.addRequestPermissionResultListener(REQUEST_PERMISSION_RESULT_LISTENER)
+        RootReceivedListener.setListener(object : IRootListener {
+            override fun onRootReceived() {
+                bindRoot()
+            }
+        })
         WindowCompat.setDecorFitsSystemWindows(window, false)
         setContent {
             CompositionLocalProvider(LocalNavigationEventDispatcherOwner provides this) {
-                LanguageSelector { Navigation() }
+                LanguageSelector {
+                    Navigation(requestShizukuAccess = ::requestShizukuAccess)
+                }
             }
         }
 
-        if (Shizuku.pingBinder() && savedInstanceState == null) {
-            Shizuku.addRequestPermissionResultListener(REQUEST_PERMISSION_RESULT_LISTENER)
-            checkPermission(acRequestCode)
-        }
-
-        RootReceivedListener.setListener(object : IRootListener {
-            override fun onRootReceived() {
-                val intent = Intent(application, RootUserService::class.java)
-                RootService.bind(intent, UserServiceProvider.connection)
-            }
-        })
+        bindGrantedShizuku()
     }
 
     override fun onResume() {
@@ -108,7 +136,7 @@ class MainActivity : ComponentActivity(), Shizuku.OnRequestPermissionResultListe
         if (
             Shizuku.pingBinder() &&
             Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED &&
-            !UserServiceProvider.isConnected()
+            !UserServiceProvider.isConnected(OperationMode.SHIZUKU)
         ) {
             bindShizuku()
         }
@@ -120,16 +148,20 @@ class MainActivity : ComponentActivity(), Shizuku.OnRequestPermissionResultListe
         navigationEventInput = null
         navigationEventDispatcher.dispose()
         RootReceivedListener.destroy()
-        if (UserServiceProvider.isConnected()) {
-            when (UserServiceProvider.opMode) {
-                OperationMode.ROOT -> RootService.unbind(UserServiceProvider.connection)
-                OperationMode.SHIZUKU -> Shizuku.unbindUserService(
+        if (!isChangingConfigurations) {
+            if (UserServiceProvider.isConnected(OperationMode.ROOT)) {
+                runCatching { RootService.unbind(UserServiceProvider.rootConnection) }
+                UserServiceProvider.rootConnection.clear()
+            }
+            if (UserServiceProvider.isConnected(OperationMode.SHIZUKU)) {
+                runCatching {
+                    Shizuku.unbindUserService(
                     ShizukuArgs.userServiceArgs,
-                    UserServiceProvider.connection,
+                    UserServiceProvider.shizukuConnection,
                     true
                 )
-
-                else -> Log.d(BuildConfig.APPLICATION_ID, "UserService not bound.")
+                }
+                UserServiceProvider.shizukuConnection.clear()
             }
         }
         super.onDestroy()

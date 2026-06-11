@@ -14,6 +14,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import rikka.shizuku.Shizuku
@@ -28,6 +31,7 @@ import vegabobo.languageselector.domain.apps.AppListLogic
 import vegabobo.languageselector.domain.apps.LoadAppsUseCase
 import vegabobo.languageselector.domain.apps.ModifiedState
 import vegabobo.languageselector.domain.apps.RefreshAppLocaleStatesUseCase
+import vegabobo.languageselector.service.UserServiceConnector
 import javax.inject.Inject
 
 @HiltViewModel
@@ -53,6 +57,21 @@ class MainScreenVm @Inject constructor(
 
     init {
         loadApps()
+        viewModelScope.launch(Dispatchers.IO) {
+            UserServiceConnector.connection
+                .filterNotNull()
+                .map { it.mode }
+                .distinctUntilChanged()
+                .collect { connectedMode ->
+                    val state = _uiState.value
+                    if (
+                        state.listOfApps.isNotEmpty() &&
+                        state.operationMode != connectedMode
+                    ) {
+                        refreshOperationModeAndLocaleStates()
+                    }
+                }
+        }
     }
 
     fun getIndexFromAppInfoItem(): Int {
@@ -141,10 +160,17 @@ class MainScreenVm @Inject constructor(
     }
 
     private suspend fun resolveOperationMode(): OperationMode {
+        UserServiceConnector.currentMode().takeIf { it != OperationMode.NONE }?.let {
+            return it
+        }
+
+        val hasShizuku = runCatching {
+            Shizuku.pingBinder() &&
+                Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
+        }.getOrDefault(false)
+        if (hasShizuku) return OperationMode.SHIZUKU
+
         val hasRoot = runCatching {
-            if (Shell.getShell().isAlive) {
-                Shell.getShell().close()
-            }
             Shell.getShell()
             Shell.isAppGrantedRoot() == true
         }.getOrDefault(false)
@@ -154,9 +180,7 @@ class MainScreenVm @Inject constructor(
             return OperationMode.ROOT
         }
 
-        val hasShizuku = Shizuku.pingBinder() &&
-            Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
-        return if (hasShizuku) OperationMode.SHIZUKU else OperationMode.NONE
+        return OperationMode.NONE
     }
 
     private fun applyLocaleUpdates(
@@ -201,10 +225,6 @@ class MainScreenVm @Inject constructor(
             )
         }
         toggleDropdown()
-    }
-
-    fun onClickProceedShizuku() {
-        loadOperationMode()
     }
 
     fun onSearchTextFieldChange(newText: String) {

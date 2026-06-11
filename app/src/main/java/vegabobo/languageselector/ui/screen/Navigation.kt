@@ -57,7 +57,9 @@ private class Navigator(
 }
 
 @Composable
-fun Navigation() {
+fun Navigation(
+    requestShizukuAccess: () -> Unit
+) {
     val backStack = rememberNavBackStack(AppRoute.Home)
     val navigator = remember(backStack) { Navigator(backStack) }
     var gestureState: NavigationEventState<SceneInfo<NavKey>>? = null
@@ -77,7 +79,8 @@ fun Navigation() {
             entry<AppRoute.Home> {
                 MainScreen(
                     navigateToAppScreen = { navigator.push(AppRoute.AppInfo(it)) },
-                    navigateToAbout = { navigator.push(AppRoute.About) }
+                    navigateToAbout = { navigator.push(AppRoute.About) },
+                    requestShizukuAccess = requestShizukuAccess
                 )
             }
             entry<AppRoute.AppInfo> { key ->

@@ -12,8 +12,10 @@ object UserServiceProvider {
 
     private val tag = this.javaClass.simpleName
 
-    var connection = Connection()
-    var opMode = OperationMode.NONE
+    val shizukuConnection = Connection(OperationMode.SHIZUKU)
+    val rootConnection = Connection(OperationMode.ROOT)
+    val opMode: OperationMode
+        get() = UserServiceConnector.currentMode()
 
     // Blocking
     fun getService(): IUserService {
@@ -35,16 +37,11 @@ object UserServiceProvider {
                 return@launch
             }
             val serviceUid = connectedService.uid
-            Log.d(tag, "IUserService available, uid: $serviceUid")
-            if (serviceUid == 0)
-                opMode = OperationMode.ROOT
-            else if (serviceUid <= 2000)
-                opMode = OperationMode.SHIZUKU
+            Log.d(tag, "IUserService available, uid: $serviceUid, mode: $opMode")
             onConnected(connectedService)
         }
     }
 
-    fun isConnected(): Boolean {
-        return UserServiceConnector.isConnected()
-    }
+    fun isConnected(mode: OperationMode? = null): Boolean =
+        UserServiceConnector.isConnected(mode)
 }
