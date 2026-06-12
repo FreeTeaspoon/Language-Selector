@@ -1,5 +1,6 @@
 package vegabobo.languageselector.ui.screen.main
 
+import androidx.compose.ui.unit.dp
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -18,6 +19,17 @@ class MainScreenStateTest {
             SearchPhase.Expanded,
             AppSearchState(phase = SearchPhase.Expanding).animationFinished().phase
         )
+    }
+
+    @Test
+    fun animationFinished_movesCollapsingToCollapsedAndPreservesOffset() {
+        val next = AppSearchState(
+            phase = SearchPhase.Collapsing,
+            collapsedOffsetY = 24.dp
+        ).animationFinished()
+
+        assertEquals(SearchPhase.Collapsed, next.phase)
+        assertEquals(24.dp, next.collapsedOffsetY)
     }
 
     @Test

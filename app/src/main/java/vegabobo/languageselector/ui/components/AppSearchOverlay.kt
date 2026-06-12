@@ -79,9 +79,10 @@ fun CollapsedAppSearch(
     label: String,
     topPadding: Dp,
     onClick: () -> Unit,
-    onOffsetChanged: (Float) -> Unit,
+    onOffsetChanged: (Dp) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val density = LocalDensity.current
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -112,7 +113,7 @@ fun CollapsedAppSearch(
             modifier = Modifier
                 .matchParentSize()
                 .onGloballyPositioned {
-                    onOffsetChanged(it.localToWindow(Offset.Zero).y)
+                    onOffsetChanged(with(density) { it.localToWindow(Offset.Zero).y.toDp() })
                 }
                 .clickable(
                     interactionSource = null,
@@ -135,11 +136,8 @@ fun AppSearchOverlay(
     onCancelRequested: () -> Unit,
     onCollapseFinished: () -> Unit
 ) {
-    if (!state.isVisible) return
-
-    val density = LocalDensity.current
     val systemTop = WindowInsets.systemBars.asPaddingValues().calculateTopPadding()
-    val collapsedTop = with(density) { state.collapsedOffsetY.toDp() }
+    val collapsedTop = state.collapsedOffsetY
     val shouldExpand = state.phase == SearchPhase.Expanding || state.phase == SearchPhase.Expanded
     val searchTopPadding = 12.dp
     val topPadding by animateDpAsState(
@@ -166,7 +164,15 @@ fun AppSearchOverlay(
             .fillMaxSize()
             .zIndex(20f)
             .drawBehind { drawRect(surfaceColor.copy(alpha = surfaceAlpha)) }
-            .semantics { onClick { false } }
+            .then(
+                if (state.isVisible) {
+                    Modifier
+                        .clickable(interactionSource = null, indication = null) {}
+                        .semantics { onClick { false } }
+                } else {
+                    Modifier
+                }
+            )
     ) {
         Row(
             modifier = Modifier
@@ -198,7 +204,7 @@ fun AppSearchOverlay(
                         .clickable(
                             interactionSource = null,
                             indication = null,
-                            enabled = state.phase == SearchPhase.Expanded
+                            enabled = state.isVisible
                         ) { onCancelRequested() }
                 )
             }
@@ -229,7 +235,7 @@ fun AppSearchOverlay(
     val backState = rememberNavigationEventState(NavigationEventInfo.None)
     NavigationBackHandler(
         state = backState,
-        isBackEnabled = true,
+        isBackEnabled = state.isVisible,
         onBackCompleted = onCloseRequested
     )
 }

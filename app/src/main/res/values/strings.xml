@@ -32,6 +32,8 @@
     <string name="apps">Apps</string>
     <string name="history">History</string>
     <string name="clear_history">Clear history</string>
+    <string name="clear_history_title">Clear history?</string>
+    <string name="clear_history_message">This removes all recently selected apps from history.</string>
     <string name="history_empty">No recently selected apps</string>
     <string name="clear">Clear</string>
     <string name="search_empty_hint">Type something to search</string>

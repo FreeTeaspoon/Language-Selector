@@ -75,10 +75,10 @@ fun AppListItem(
                 )
             }
             if (tags.isNotEmpty()) {
-                Row(
+                Column(
                     modifier = Modifier.padding(start = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     tags.forEach { tag ->
                         when (tag) {

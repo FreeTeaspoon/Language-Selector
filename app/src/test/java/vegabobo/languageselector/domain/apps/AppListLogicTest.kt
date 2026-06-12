@@ -172,6 +172,22 @@ class AppListLogicTest {
     }
 
     @Test
+    fun rowTags_includeModifiedOnlyForModifiedUserApps() {
+        assertEquals(
+            listOf(AppRowTag.Modified),
+            AppListLogic.rowTags(app("modified", state = ModifiedState.Modified))
+        )
+    }
+
+    @Test
+    fun rowTags_includeSystemOnlyForUnmodifiedSystemApps() {
+        assertEquals(
+            listOf(AppRowTag.System),
+            AppListLogic.rowTags(app("system", system = true))
+        )
+    }
+
+    @Test
     fun rowTags_areEmptyForUnmodifiedUserApps() {
         assertTrue(AppListLogic.rowTags(app("user")).isEmpty())
     }

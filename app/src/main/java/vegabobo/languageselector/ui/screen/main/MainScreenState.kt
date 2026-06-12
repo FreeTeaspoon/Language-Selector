@@ -3,6 +3,8 @@ package vegabobo.languageselector.ui.screen.main
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import vegabobo.languageselector.dao.AppInfoEntity
 import vegabobo.languageselector.domain.apps.AppInfo
 import vegabobo.languageselector.domain.apps.AppListPreferences
@@ -16,7 +18,7 @@ enum class SearchResultState { Default, Empty, Results }
 data class AppSearchState(
     val phase: SearchPhase = SearchPhase.Collapsed,
     val query: String = "",
-    val collapsedOffsetY: Float = 0f,
+    val collapsedOffsetY: Dp = 0.dp,
     val resultState: SearchResultState = SearchResultState.Default
 ) {
     val isVisible: Boolean get() = phase != SearchPhase.Collapsed

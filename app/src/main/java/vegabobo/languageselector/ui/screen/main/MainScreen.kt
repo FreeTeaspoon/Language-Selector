@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
@@ -52,6 +53,7 @@ import top.yukonga.miuix.kmp.icon.extended.Notes
 import top.yukonga.miuix.kmp.icon.extended.Sort
 import top.yukonga.miuix.kmp.overlay.OverlayListPopup
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.MiuixPopupUtils.Companion.MiuixPopupHost
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import vegabobo.languageselector.R
@@ -80,7 +82,7 @@ data class MainScreenActions(
     val onSearchCloseRequested: () -> Unit,
     val onSearchCancelRequested: () -> Unit,
     val onSearchCollapseFinished: () -> Unit,
-    val onSearchOffsetChanged: (Float) -> Unit,
+    val onSearchOffsetChanged: (Dp) -> Unit,
     val onRequestShizuku: () -> Unit
 )
 
@@ -233,17 +235,20 @@ fun MainScreenContent(
                 }
             },
             popupHost = {
-                AppSearchOverlay(
-                    state = state.search,
-                    results = state.searchResults,
-                    bottomPadding = bottomInset,
-                    onQueryChange = actions.onSearchQueryChange,
-                    onAppClick = actions.onAppClick,
-                    onExpansionFinished = actions.onSearchExpansionFinished,
-                    onCloseRequested = actions.onSearchCloseRequested,
-                    onCancelRequested = actions.onSearchCancelRequested,
-                    onCollapseFinished = actions.onSearchCollapseFinished
-                )
+                Box(Modifier.fillMaxSize()) {
+                    AppSearchOverlay(
+                        state = state.search,
+                        results = state.searchResults,
+                        bottomPadding = bottomInset,
+                        onQueryChange = actions.onSearchQueryChange,
+                        onAppClick = actions.onAppClick,
+                        onExpansionFinished = actions.onSearchExpansionFinished,
+                        onCloseRequested = actions.onSearchCloseRequested,
+                        onCancelRequested = actions.onSearchCancelRequested,
+                        onCollapseFinished = actions.onSearchCollapseFinished
+                    )
+                    MiuixPopupHost()
+                }
             },
             contentWindowInsets = WindowInsets.systemBars
                 .add(WindowInsets.displayCutout)

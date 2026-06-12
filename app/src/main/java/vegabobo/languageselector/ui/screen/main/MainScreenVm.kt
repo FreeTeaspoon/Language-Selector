@@ -4,6 +4,7 @@ import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.os.SystemClock
 import android.util.Log
+import androidx.compose.ui.unit.Dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.topjohnwu.superuser.Shell
@@ -231,7 +232,7 @@ class MainScreenVm @Inject constructor(
         it.copy(search = it.search.copy(query = query))
     }
 
-    fun updateSearchOffset(offsetY: Float) = _uiState.update {
+    fun updateSearchOffset(offsetY: Dp) = _uiState.update {
         if (it.search.collapsedOffsetY == offsetY) it
         else it.copy(search = it.search.copy(collapsedOffsetY = offsetY))
     }
