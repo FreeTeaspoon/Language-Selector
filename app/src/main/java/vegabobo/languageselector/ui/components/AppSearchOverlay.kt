@@ -44,8 +44,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.onClick
@@ -78,6 +80,7 @@ import vegabobo.languageselector.ui.screen.main.SearchResultState
 fun CollapsedAppSearch(
     label: String,
     topPadding: Dp,
+    visible: Boolean,
     onClick: () -> Unit,
     onOffsetChanged: (Dp) -> Unit,
     modifier: Modifier = Modifier
@@ -88,6 +91,7 @@ fun CollapsedAppSearch(
             .fillMaxWidth()
             .padding(horizontal = 12.dp)
             .padding(top = topPadding, bottom = 6.dp)
+            .graphicsLayer { alpha = if (visible) 1f else 0f }
     ) {
         InputField(
             query = "",
@@ -113,12 +117,18 @@ fun CollapsedAppSearch(
             modifier = Modifier
                 .matchParentSize()
                 .onGloballyPositioned {
-                    onOffsetChanged(with(density) { it.localToWindow(Offset.Zero).y.toDp() })
+                    onOffsetChanged(with(density) { it.positionInWindow().y.toDp() })
                 }
-                .clickable(
-                    interactionSource = null,
-                    indication = null,
-                    onClick = onClick
+                .then(
+                    if (visible) {
+                        Modifier.clickable(
+                            interactionSource = null,
+                            indication = null,
+                            onClick = onClick
+                        )
+                    } else {
+                        Modifier
+                    }
                 )
         )
     }
@@ -129,15 +139,16 @@ fun AppSearchOverlay(
     state: AppSearchState,
     results: List<AppInfo>,
     bottomPadding: Dp,
+    appNavigationEnabled: Boolean,
     onQueryChange: (String) -> Unit,
-    onAppClick: (AppInfo) -> Unit,
+    onAppClick: (AppInfo) -> Boolean,
     onExpansionFinished: () -> Unit,
     onCloseRequested: () -> Unit,
     onCancelRequested: () -> Unit,
     onCollapseFinished: () -> Unit
 ) {
     val systemTop = WindowInsets.systemBars.asPaddingValues().calculateTopPadding()
-    val collapsedTop = state.collapsedOffsetY
+    val collapsedTop = state.activeAnchorY
     val shouldExpand = state.phase == SearchPhase.Expanding || state.phase == SearchPhase.Expanded
     val searchTopPadding = 12.dp
     val topPadding by animateDpAsState(
@@ -167,7 +178,7 @@ fun AppSearchOverlay(
             .then(
                 if (state.isVisible) {
                     Modifier
-                        .clickable(interactionSource = null, indication = null) {}
+                        .pointerInput(Unit) {}
                         .semantics { onClick { false } }
                 } else {
                     Modifier
@@ -204,7 +215,7 @@ fun AppSearchOverlay(
                         .clickable(
                             interactionSource = null,
                             indication = null,
-                            enabled = state.isVisible
+                            enabled = state.phase == SearchPhase.Expanded
                         ) { onCancelRequested() }
                 )
             }
@@ -225,7 +236,11 @@ fun AppSearchOverlay(
                     contentPadding = PaddingValues(top = 6.dp, bottom = bottomPadding)
                 ) {
                     items(results, key = { it.pkg }) { app ->
-                        AppListItem(app = app, onClickApp = { onAppClick(app) })
+                        AppListItem(
+                            app = app,
+                            enabled = appNavigationEnabled,
+                            onClickApp = { onAppClick(app) }
+                        )
                     }
                 }
             }

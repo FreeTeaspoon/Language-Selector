@@ -1,7 +1,5 @@
 package vegabobo.languageselector.ui.screen.about
 
-import android.content.Context
-import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,33 +30,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.graphics.drawable.toBitmap
-import com.mikepenz.aboutlibraries.Libs
-import com.mikepenz.aboutlibraries.util.withContext
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.blur.BlendColorEntry
-import top.yukonga.miuix.kmp.blur.BlurBlendMode
-import top.yukonga.miuix.kmp.blur.BlurColors
-import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.blur.layerBackdrop
-import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
-import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
@@ -76,8 +64,9 @@ data class AboutDependency(
 )
 
 data class AboutUiState(
+    val title: String,
     val appName: String,
-    val versionText: String,
+    val versionName: String,
     val sourceUrl: String,
     val dependencies: List<AboutDependency>
 )
@@ -89,26 +78,17 @@ data class AboutScreenActions(
 
 @Composable
 fun AboutScreen(navigateBack: () -> Unit) {
-    val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
-    val appName = stringResource(R.string.app_name)
     val state = AboutUiState(
-        appName = appName,
-        versionText = stringResource(R.string.version).format(
-            BuildConfig.VERSION_NAME,
-            BuildConfig.VERSION_CODE
-        ),
+        title = stringResource(R.string.about),
+        appName = stringResource(R.string.app_name),
+        versionName = BuildConfig.VERSION_NAME,
         sourceUrl = "https://github.com/FreeTeaspoon/Language-Selector",
-        dependencies = remember(context) { loadAboutDependencies(context) }
+        dependencies = remember { staticDependencies() }
     )
-    val appIcon = remember(context) {
-        context.packageManager.getApplicationIcon(context.applicationInfo)
-            .toBitmap()
-            .asImageBitmap()
-    }
+
     AboutScreenContent(
         state = state,
-        appIcon = appIcon,
         actions = AboutScreenActions(
             onBack = navigateBack,
             onOpenUrl = { url -> runCatching { uriHandler.openUri(url) } }
@@ -119,7 +99,6 @@ fun AboutScreen(navigateBack: () -> Unit) {
 @Composable
 private fun AboutScreenContent(
     state: AboutUiState,
-    appIcon: androidx.compose.ui.graphics.ImageBitmap,
     actions: AboutScreenActions
 ) {
     val scrollBehavior = MiuixScrollBehavior()
@@ -150,7 +129,7 @@ private fun AboutScreenContent(
         topBar = {
             BlurredTopBar(backdrop = barBackdrop, active = blurActive) {
                 SmallTopAppBar(
-                    title = state.appName,
+                    title = state.title,
                     color = barColor,
                     titleColor = MiuixTheme.colorScheme.onSurface.copy(alpha = titleAlpha),
                     navigationIcon = { BackButton(actions.onBack) },
@@ -165,79 +144,44 @@ private fun AboutScreenContent(
             .only(WindowInsetsSides.Horizontal)
     ) { innerPadding ->
         Box(modifier = if (barBackdrop != null) Modifier.layerBackdrop(barBackdrop) else Modifier) {
-            AboutContent(
-                state = state,
-                appIcon = appIcon,
-                actions = actions,
-                contentPadding = innerPadding,
-                bottomPadding = bottomInset + 12.dp,
-                scrollBehavior = scrollBehavior,
-                scrollProgress = scrollProgress,
-                listState = listState
-            )
-        }
-    }
-}
-
-@Composable
-private fun AboutContent(
-    state: AboutUiState,
-    appIcon: androidx.compose.ui.graphics.ImageBitmap,
-    actions: AboutScreenActions,
-    contentPadding: PaddingValues,
-    bottomPadding: androidx.compose.ui.unit.Dp,
-    scrollBehavior: top.yukonga.miuix.kmp.basic.ScrollBehavior,
-    scrollProgress: Float,
-    listState: androidx.compose.foundation.lazy.LazyListState
-) {
-    val surfaceColor = MiuixTheme.colorScheme.surface
-    val heroBackdrop = rememberLayerBackdrop {
-        drawRect(surfaceColor)
-        drawContent()
-    }
-    val heroBlurEnabled = remember { isRuntimeShaderSupported() }
-
-    Box(modifier = if (heroBlurEnabled) Modifier.layerBackdrop(heroBackdrop) else Modifier) {
-        LazyColumn(
-            state = listState,
-            modifier = Modifier
-                .fillMaxSize()
-                .nestedScroll(scrollBehavior.nestedScrollConnection)
-                .overScrollVertical()
-                .scrollEndHaptic(),
-            contentPadding = PaddingValues(
-                top = contentPadding.calculateTopPadding(),
-                bottom = bottomPadding
-            ),
-            overscrollEffect = null
-        ) {
-            item {
-                AboutHero(
-                    appName = state.appName,
-                    versionText = state.versionText,
-                    appIcon = appIcon,
-                    scrollProgress = scrollProgress,
-                    heroBackdrop = heroBackdrop,
-                    heroBlurEnabled = heroBlurEnabled
-                )
-            }
-            item { SmallTitle(text = stringResource(R.string.app)) }
-            item {
-                AboutPreferenceCard(
-                    title = stringResource(R.string.ghrepo),
-                    summary = stringResource(R.string.view_source),
-                    onClick = { actions.onOpenUrl(state.sourceUrl) }
-                )
-            }
-            item { SmallTitle(text = stringResource(R.string.deps_libs)) }
-            items(state.dependencies.size) { index ->
-                val dependency = state.dependencies[index]
-                AboutPreferenceCard(
-                    title = dependency.name,
-                    summary = dependency.summary,
-                    enabled = dependency.url != null,
-                    onClick = { dependency.url?.let(actions.onOpenUrl) }
-                )
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .nestedScroll(scrollBehavior.nestedScrollConnection)
+                    .overScrollVertical()
+                    .scrollEndHaptic(),
+                contentPadding = PaddingValues(
+                    top = innerPadding.calculateTopPadding(),
+                    bottom = bottomInset + 12.dp
+                ),
+                overscrollEffect = null
+            ) {
+                item {
+                    AboutHero(
+                        appName = state.appName,
+                        versionName = state.versionName,
+                        scrollProgress = scrollProgress
+                    )
+                }
+                item { SmallTitle(text = stringResource(R.string.app)) }
+                item {
+                    AboutPreferenceCard(
+                        title = stringResource(R.string.ghrepo),
+                        summary = stringResource(R.string.view_source),
+                        onClick = { actions.onOpenUrl(state.sourceUrl) }
+                    )
+                }
+                item { SmallTitle(text = stringResource(R.string.deps_libs)) }
+                items(state.dependencies.size) { index ->
+                    val dependency = state.dependencies[index]
+                    AboutPreferenceCard(
+                        title = dependency.name,
+                        summary = dependency.summary,
+                        enabled = dependency.url != null,
+                        onClick = { dependency.url?.let(actions.onOpenUrl) }
+                    )
+                }
             }
         }
     }
@@ -246,11 +190,8 @@ private fun AboutContent(
 @Composable
 private fun AboutHero(
     appName: String,
-    versionText: String,
-    appIcon: androidx.compose.ui.graphics.ImageBitmap,
-    scrollProgress: Float,
-    heroBackdrop: top.yukonga.miuix.kmp.blur.LayerBackdrop,
-    heroBlurEnabled: Boolean
+    versionName: String,
+    scrollProgress: Float
 ) {
     val heroAlpha = 1f - scrollProgress
     val heroScale = 1f - scrollProgress * 0.05f
@@ -267,30 +208,11 @@ private fun AboutHero(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Image(
-            bitmap = appIcon,
+            painter = painterResource(R.drawable.ic_launcher_foreground),
             contentDescription = appName,
             modifier = Modifier
-                .size(104.dp)
+                .size(100.dp)
                 .clip(RoundedCornerShape(24.dp))
-                .then(
-                    if (heroBlurEnabled) {
-                        Modifier.textureBlur(
-                            backdrop = heroBackdrop,
-                            shape = RoundedCornerShape(24.dp),
-                            blurRadius = 80f,
-                            colors = BlurColors(
-                                blendColors = listOf(
-                                    BlendColorEntry(
-                                        MiuixTheme.colorScheme.primary.copy(alpha = 0.28f),
-                                        BlurBlendMode.Screen
-                                    )
-                                )
-                            )
-                        )
-                    } else {
-                        Modifier
-                    }
-                )
         )
         Spacer(Modifier.height(16.dp))
         Text(
@@ -302,9 +224,9 @@ private fun AboutHero(
             modifier = Modifier.fillMaxWidth()
         )
         Text(
-            text = versionText,
+            text = versionName,
             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            style = MiuixTheme.textStyles.body2,
+            fontSize = 14.sp,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
         )
@@ -334,28 +256,7 @@ private fun AboutPreferenceCard(
     }
 }
 
-private fun loadAboutDependencies(context: Context): List<AboutDependency> {
-    return runCatching {
-        Libs.Builder()
-            .withContext(context)
-            .build()
-            .libraries
-            .map { library ->
-                AboutDependency(
-                    name = library.name,
-                    summary = library.licenses.joinToString { it.name },
-                    url = library.website.orEmpty().ifBlank { null }
-                )
-            }
-            .sortedBy { it.name.lowercase() }
-    }.onFailure { throwable ->
-        if (BuildConfig.DEBUG) {
-            Log.w("AboutScreen", "Unable to load generated dependency metadata", throwable)
-        }
-    }.getOrElse { fallbackDependencies() }
-}
-
-private fun fallbackDependencies(): List<AboutDependency> = listOf(
+fun staticDependencies(): List<AboutDependency> = listOf(
     AboutDependency(
         name = "Miuix",
         summary = "Apache-2.0",
@@ -375,5 +276,15 @@ private fun fallbackDependencies(): List<AboutDependency> = listOf(
         name = "AboutLibraries",
         summary = "Apache-2.0",
         url = "https://github.com/mikepenz/AboutLibraries"
+    ),
+    AboutDependency(
+        name = "AndroidX",
+        summary = "Apache-2.0",
+        url = "https://github.com/androidx/androidx"
+    ),
+    AboutDependency(
+        name = "Kotlin",
+        summary = "Apache-2.0",
+        url = "https://github.com/JetBrains/kotlin"
     )
 )

@@ -1,5 +1,8 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
+val appVersionCode = 16
+val appVersionName = "1.05.1"
+
 plugins {
     alias(libs.plugins.com.android.application)
     alias(libs.plugins.com.google.devtools.ksp)
@@ -17,8 +20,8 @@ android {
         applicationId = "vegabobo.languageselector"
         minSdk = 33
         targetSdk = 37
-        versionCode = 15
-        versionName = "1.05.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -55,6 +58,10 @@ android {
         checkReleaseBuilds = false
         abortOnError = false
     }
+}
+
+base {
+    archivesName.set("LanguageSelector_${appVersionName}_${appVersionCode}")
 }
 
 kotlin {

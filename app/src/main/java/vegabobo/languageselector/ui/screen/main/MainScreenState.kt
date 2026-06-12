@@ -19,6 +19,7 @@ data class AppSearchState(
     val phase: SearchPhase = SearchPhase.Collapsed,
     val query: String = "",
     val collapsedOffsetY: Dp = 0.dp,
+    val activeAnchorY: Dp = 0.dp,
     val resultState: SearchResultState = SearchResultState.Default
 ) {
     val isVisible: Boolean get() = phase != SearchPhase.Collapsed
@@ -26,23 +27,40 @@ data class AppSearchState(
 }
 
 fun AppSearchState.openRequested(): AppSearchState =
-    if (phase == SearchPhase.Collapsed) copy(phase = SearchPhase.Expanding) else this
+    if (phase == SearchPhase.Collapsed) {
+        copy(phase = SearchPhase.Expanding, activeAnchorY = collapsedOffsetY)
+    } else {
+        this
+    }
 
 fun AppSearchState.animationFinished(): AppSearchState = when (phase) {
     SearchPhase.Expanding -> copy(phase = SearchPhase.Expanded)
-    SearchPhase.Collapsing -> AppSearchState(collapsedOffsetY = collapsedOffsetY)
+    SearchPhase.Collapsing -> AppSearchState(
+        collapsedOffsetY = collapsedOffsetY,
+        activeAnchorY = collapsedOffsetY
+    )
     else -> this
 }
 
-fun AppSearchState.closeRequested(): AppSearchState =
-    if (query.isNotEmpty()) {
-        copy(query = "", resultState = SearchResultState.Default)
-    } else {
-        copy(phase = SearchPhase.Collapsing)
-    }
+fun AppSearchState.closeRequested(): AppSearchState = when {
+    query.isNotEmpty() -> copy(query = "", resultState = SearchResultState.Default)
+    phase == SearchPhase.Expanding || phase == SearchPhase.Expanded -> copy(phase = SearchPhase.Collapsing)
+    else -> this
+}
 
-fun AppSearchState.cancelRequested(): AppSearchState =
-    copy(phase = SearchPhase.Collapsing, query = "", resultState = SearchResultState.Default)
+fun AppSearchState.cancelRequested(): AppSearchState = when (phase) {
+    SearchPhase.Expanding,
+    SearchPhase.Expanded -> copy(phase = SearchPhase.Collapsing, query = "", resultState = SearchResultState.Default)
+    else -> this
+}
+
+fun AppSearchState.withMeasuredOffset(offsetY: Dp): AppSearchState {
+    return if (phase == SearchPhase.Collapsed) {
+        copy(collapsedOffsetY = offsetY, activeAnchorY = offsetY)
+    } else {
+        copy(collapsedOffsetY = offsetY)
+    }
+}
 
 fun searchResultStateFor(query: String, hasResults: Boolean): SearchResultState = when {
     query.isBlank() -> SearchResultState.Default

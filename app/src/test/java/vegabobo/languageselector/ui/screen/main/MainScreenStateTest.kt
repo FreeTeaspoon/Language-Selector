@@ -7,10 +7,10 @@ import org.junit.Test
 class MainScreenStateTest {
     @Test
     fun openRequested_movesCollapsedSearchToExpanding() {
-        assertEquals(
-            SearchPhase.Expanding,
-            AppSearchState().openRequested().phase
-        )
+        val next = AppSearchState(collapsedOffsetY = 32.dp).openRequested()
+
+        assertEquals(SearchPhase.Expanding, next.phase)
+        assertEquals(32.dp, next.activeAnchorY)
     }
 
     @Test
@@ -25,11 +25,32 @@ class MainScreenStateTest {
     fun animationFinished_movesCollapsingToCollapsedAndPreservesOffset() {
         val next = AppSearchState(
             phase = SearchPhase.Collapsing,
-            collapsedOffsetY = 24.dp
+            collapsedOffsetY = 24.dp,
+            activeAnchorY = 80.dp,
+            query = "settings",
+            resultState = SearchResultState.Results
         ).animationFinished()
 
         assertEquals(SearchPhase.Collapsed, next.phase)
         assertEquals(24.dp, next.collapsedOffsetY)
+        assertEquals(24.dp, next.activeAnchorY)
+        assertEquals("", next.query)
+        assertEquals(SearchResultState.Default, next.resultState)
+    }
+
+    @Test
+    fun measuredOffset_updatesActiveAnchorOnlyWhenCollapsed() {
+        val collapsed = AppSearchState().withMeasuredOffset(18.dp)
+        val expanded = AppSearchState(
+            phase = SearchPhase.Expanded,
+            collapsedOffsetY = 18.dp,
+            activeAnchorY = 18.dp
+        ).withMeasuredOffset(42.dp)
+
+        assertEquals(18.dp, collapsed.collapsedOffsetY)
+        assertEquals(18.dp, collapsed.activeAnchorY)
+        assertEquals(42.dp, expanded.collapsedOffsetY)
+        assertEquals(18.dp, expanded.activeAnchorY)
     }
 
     @Test

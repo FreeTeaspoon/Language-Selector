@@ -32,6 +32,9 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigationevent.NavigationEventInfo
+import androidx.navigationevent.compose.NavigationBackHandler
+import androidx.navigationevent.compose.rememberNavigationEventState
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
@@ -57,7 +60,8 @@ import vegabobo.languageselector.ui.components.rememberAppBlurBackdrop
 @Composable
 fun HistoryScreen(
     navigateBack: () -> Unit,
-    navigateToApp: (String) -> Unit,
+    navigateToApp: (String) -> Boolean,
+    appNavigationEnabled: Boolean,
     viewModel: HistoryScreenVm = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -129,16 +133,43 @@ fun HistoryScreen(
                     overscrollEffect = null
                 ) {
                     items(state.apps, key = { it.pkg }) { app ->
-                        AppListItem(app = app, onClickApp = navigateToApp)
+                        AppListItem(
+                            app = app,
+                            enabled = appNavigationEnabled,
+                            onClickApp = navigateToApp
+                        )
                     }
                 }
             }
         }
     }
 
-    WindowDialog(
+    ClearHistoryDialog(
         show = showClearConfirm,
-        onDismissRequest = { showClearConfirm = false },
+        onDismiss = { showClearConfirm = false },
+        onConfirm = {
+            showClearConfirm = false
+            viewModel.clearHistory()
+        }
+    )
+}
+
+@Composable
+private fun ClearHistoryDialog(
+    show: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    val backState = rememberNavigationEventState(NavigationEventInfo.None)
+    NavigationBackHandler(
+        state = backState,
+        isBackEnabled = show,
+        onBackCompleted = onDismiss
+    )
+
+    WindowDialog(
+        show = show,
+        onDismissRequest = onDismiss,
         title = stringResource(R.string.clear_history_title)
     ) {
         Text(
@@ -153,17 +184,14 @@ fun HistoryScreen(
             TextButton(
                 modifier = Modifier.weight(1f),
                 text = stringResource(R.string.cancel),
-                onClick = { showClearConfirm = false }
+                onClick = onDismiss
             )
             Spacer(modifier = Modifier.width(8.dp))
             TextButton(
                 modifier = Modifier.weight(1f),
                 text = stringResource(R.string.clear),
                 colors = ButtonDefaults.textButtonColorsPrimary(),
-                onClick = {
-                    showClearConfirm = false
-                    viewModel.clearHistory()
-                }
+                onClick = onConfirm
             )
         }
     }

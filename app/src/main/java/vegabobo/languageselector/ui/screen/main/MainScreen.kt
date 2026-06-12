@@ -68,9 +68,10 @@ import vegabobo.languageselector.ui.components.CollapsedAppSearch
 import vegabobo.languageselector.ui.components.rememberAppBlurBackdrop
 
 data class MainScreenActions(
-    val onAppClick: (AppInfo) -> Unit,
-    val onHistoryClick: () -> Unit,
-    val onAboutClick: () -> Unit,
+    val onAppClick: (AppInfo) -> Boolean,
+    val onHistoryClick: () -> Boolean,
+    val onAboutClick: () -> Boolean,
+    val appNavigationEnabled: Boolean,
     val onRefresh: () -> Unit,
     val onSortFieldChange: (AppSortField) -> Unit,
     val onSortDirectionToggle: () -> Unit,
@@ -88,9 +89,10 @@ data class MainScreenActions(
 
 @Composable
 fun MainScreen(
-    navigateToAppScreen: (String) -> Unit,
-    navigateToHistory: () -> Unit,
-    navigateToAbout: () -> Unit,
+    navigateToAppScreen: (String) -> Boolean,
+    navigateToHistory: () -> Boolean,
+    navigateToAbout: () -> Boolean,
+    appNavigationEnabled: Boolean,
     requestShizukuAccess: () -> Unit,
     mainScreenVm: MainScreenVm = hiltViewModel()
 ) {
@@ -101,11 +103,16 @@ fun MainScreen(
         state = state,
         actions = MainScreenActions(
             onAppClick = { app ->
-                mainScreenVm.onClickApp(app)
-                navigateToAppScreen(app.pkg)
+                if (navigateToAppScreen(app.pkg)) {
+                    mainScreenVm.onClickApp(app)
+                    true
+                } else {
+                    false
+                }
             },
             onHistoryClick = navigateToHistory,
             onAboutClick = navigateToAbout,
+            appNavigationEnabled = appNavigationEnabled,
             onRefresh = mainScreenVm::refresh,
             onSortFieldChange = mainScreenVm::updateSortField,
             onSortDirectionToggle = mainScreenVm::toggleSortDirection,
@@ -150,7 +157,7 @@ fun MainScreenContent(
                         color = barColor,
                         scrollBehavior = scrollBehavior,
                         navigationIcon = {
-                            IconButton(onClick = actions.onHistoryClick) {
+                            IconButton(onClick = { actions.onHistoryClick() }) {
                                 Icon(
                                     imageVector = MiuixIcons.Notes,
                                     contentDescription = stringResource(R.string.history)
@@ -227,6 +234,8 @@ fun MainScreenContent(
                             CollapsedAppSearch(
                                 label = stringResource(R.string.search),
                                 topPadding = dynamicSearchPadding,
+                                visible = state.search.phase == SearchPhase.Collapsed ||
+                                    state.search.phase == SearchPhase.Collapsing,
                                 onClick = actions.onSearchOpen,
                                 onOffsetChanged = actions.onSearchOffsetChanged
                             )
@@ -240,6 +249,7 @@ fun MainScreenContent(
                         state = state.search,
                         results = state.searchResults,
                         bottomPadding = bottomInset,
+                        appNavigationEnabled = actions.appNavigationEnabled,
                         onQueryChange = actions.onSearchQueryChange,
                         onAppClick = actions.onAppClick,
                         onExpansionFinished = actions.onSearchExpansionFinished,
@@ -304,7 +314,11 @@ fun MainScreenContent(
                                 }
                             }
                             items(state.visibleHomeApps, key = { it.pkg }) { app ->
-                                AppListItem(app = app, onClickApp = { actions.onAppClick(app) })
+                                AppListItem(
+                                    app = app,
+                                    enabled = actions.appNavigationEnabled,
+                                    onClickApp = { actions.onAppClick(app) }
+                                )
                             }
                         }
                     }

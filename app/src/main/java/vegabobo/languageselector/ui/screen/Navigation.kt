@@ -2,7 +2,11 @@ package vegabobo.languageselector.ui.screen
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.navigation3.runtime.NavEntryDecorator
 import androidx.navigation3.runtime.NavKey
@@ -23,6 +27,7 @@ import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.NavigationEventState
 import androidx.navigationevent.compose.rememberNavigationEventState
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
+import kotlinx.coroutines.delay
 import kotlinx.serialization.Serializable
 import vegabobo.languageselector.ui.screen.about.AboutScreen
 import vegabobo.languageselector.ui.screen.appinfo.AppInfoScreen
@@ -47,17 +52,31 @@ sealed interface AppRoute : NavKey {
 private class Navigator(
     val backStack: MutableList<NavKey>
 ) {
-    fun push(key: NavKey) {
-        if (backStack.lastOrNull() == key) return
+    var isNavigationLocked by mutableStateOf(false)
+        private set
+
+    fun push(key: NavKey): Boolean {
+        if (!canNavigateTo(key)) return false
+        isNavigationLocked = true
         backStack.add(key)
+        return true
     }
 
-    fun pop() {
-        if (backStack.size <= 1) return
+    fun pop(): Boolean {
+        if (isNavigationLocked || backStack.size <= 1) return false
+        isNavigationLocked = true
         backStack.removeAt(backStack.lastIndex)
+        return true
     }
 
     fun current(): NavKey? = backStack.lastOrNull()
+
+    fun canNavigateTo(key: NavKey): Boolean =
+        !isNavigationLocked && backStack.lastOrNull() != key
+
+    fun unlock() {
+        isNavigationLocked = false
+    }
 }
 
 @Composable
@@ -67,6 +86,14 @@ fun Navigation(
     val backStack = rememberNavBackStack(AppRoute.Home)
     val navigator = remember(backStack) { Navigator(backStack) }
     var gestureState: NavigationEventState<SceneInfo<NavKey>>? = null
+    val currentRoute = navigator.current()
+
+    LaunchedEffect(currentRoute, navigator.backStack.size) {
+        if (navigator.isNavigationLocked) {
+            delay(450)
+            navigator.unlock()
+        }
+    }
 
     val entries = rememberDecoratedNavEntries(
         backStack = navigator.backStack,
@@ -85,6 +112,7 @@ fun Navigation(
                     navigateToAppScreen = { navigator.push(AppRoute.AppInfo(it)) },
                     navigateToHistory = { navigator.push(AppRoute.History) },
                     navigateToAbout = { navigator.push(AppRoute.About) },
+                    appNavigationEnabled = !navigator.isNavigationLocked,
                     requestShizukuAccess = requestShizukuAccess
                 )
             }
@@ -100,7 +128,8 @@ fun Navigation(
             entry<AppRoute.History> {
                 HistoryScreen(
                     navigateBack = { navigator.pop() },
-                    navigateToApp = { navigator.push(AppRoute.AppInfo(it)) }
+                    navigateToApp = { navigator.push(AppRoute.AppInfo(it)) },
+                    appNavigationEnabled = !navigator.isNavigationLocked
                 )
             }
         }
@@ -123,7 +152,7 @@ fun Navigation(
 
     NavigationBackHandler(
         state = gestureState,
-        isBackEnabled = scene.previousEntries.isNotEmpty(),
+        isBackEnabled = !navigator.isNavigationLocked && scene.previousEntries.isNotEmpty(),
         onBackCompleted = { navigator.pop() }
     )
 

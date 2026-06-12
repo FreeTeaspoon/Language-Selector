@@ -234,7 +234,7 @@ class MainScreenVm @Inject constructor(
 
     fun updateSearchOffset(offsetY: Dp) = _uiState.update {
         if (it.search.collapsedOffsetY == offsetY) it
-        else it.copy(search = it.search.copy(collapsedOffsetY = offsetY))
+        else it.copy(search = it.search.withMeasuredOffset(offsetY))
     }
 
     fun reloadLastSelectedItem() {
