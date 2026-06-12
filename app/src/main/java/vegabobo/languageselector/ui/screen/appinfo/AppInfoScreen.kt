@@ -9,13 +9,18 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.captionBar
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -41,7 +47,6 @@ import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.rememberNavigationEventState
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.DropdownImpl
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.ListPopupColumn
@@ -51,6 +56,7 @@ import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.MoreCircle
 import top.yukonga.miuix.kmp.overlay.OverlayListPopup
@@ -59,10 +65,14 @@ import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import vegabobo.languageselector.R
 import vegabobo.languageselector.domain.apps.ModifiedState
+import vegabobo.languageselector.ui.components.AppDropdownItem
 import vegabobo.languageselector.ui.components.AppIconImage
+import vegabobo.languageselector.ui.components.AppPopupDefaults
 import vegabobo.languageselector.ui.components.BackButton
+import vegabobo.languageselector.ui.components.BlurredTopBar
 import vegabobo.languageselector.ui.components.LocaleItemList
 import vegabobo.languageselector.ui.components.ModifiedStatusTag
+import vegabobo.languageselector.ui.components.rememberAppBlurBackdrop
 
 @Composable
 fun AppInfoScreen(
@@ -79,6 +89,8 @@ fun AppInfoScreen(
     val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
         WindowInsets.captionBar.asPaddingValues().calculateBottomPadding()
     var showMorePopup by remember { mutableStateOf(false) }
+    val backdrop = rememberAppBlurBackdrop()
+    val barColor = if (backdrop != null) Color.Transparent else MiuixTheme.colorScheme.surface
 
     fun pinToast(locale: String) {
         Toast.makeText(
@@ -103,69 +115,76 @@ fun AppInfoScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = stringResource(R.string.app_language),
-                navigationIcon = { BackButton(navigateBack) },
-                scrollBehavior = scrollBehavior,
-                actions = {
-                    Box {
-                        OverlayListPopup(
-                            show = showMorePopup,
-                            alignment = PopupPositionProvider.Align.TopEnd,
-                            enableWindowDim = false,
-                            onDismissRequest = { showMorePopup = false }
-                        ) {
-                            val labels = listOf(
-                                stringResource(R.string.open),
-                                stringResource(R.string.close),
-                                stringResource(R.string.settings)
-                            )
-                            ListPopupColumn {
-                                labels.forEachIndexed { index, label ->
-                                    DropdownImpl(
-                                        text = label,
-                                        optionSize = labels.size,
-                                        isSelected = false,
-                                        index = index,
-                                        onSelectedIndexChange = {
-                                            showMorePopup = false
-                                            when (index) {
-                                                0 -> appInfoVm.onClickOpen()
-                                                1 -> appInfoVm.onClickForceClose()
-                                                else -> appInfoVm.onClickSettings()
+            BlurredTopBar(backdrop = backdrop) {
+                TopAppBar(
+                    title = stringResource(R.string.app_language),
+                    color = barColor,
+                    navigationIcon = { BackButton(navigateBack) },
+                    scrollBehavior = scrollBehavior,
+                    actions = {
+                        Box {
+                            OverlayListPopup(
+                                show = showMorePopup,
+                                popupPositionProvider = AppPopupDefaults.MenuPositionProvider,
+                                alignment = PopupPositionProvider.Align.TopEnd,
+                                onDismissRequest = { showMorePopup = false }
+                            ) {
+                                val labels = listOf(
+                                    stringResource(R.string.open),
+                                    stringResource(R.string.close),
+                                    stringResource(R.string.settings)
+                                )
+                                ListPopupColumn {
+                                    labels.forEachIndexed { index, label ->
+                                        AppDropdownItem(
+                                            text = label,
+                                            optionSize = labels.size,
+                                            index = index,
+                                            onClick = {
+                                                showMorePopup = false
+                                                when (index) {
+                                                    0 -> appInfoVm.onClickOpen()
+                                                    1 -> appInfoVm.onClickForceClose()
+                                                    else -> appInfoVm.onClickSettings()
+                                                }
                                             }
-                                        }
-                                    )
+                                        )
+                                    }
                                 }
                             }
-                        }
-                        IconButton(
-                            onClick = { showMorePopup = true },
-                            holdDownState = showMorePopup
-                        ) {
-                            Icon(
-                                imageVector = MiuixIcons.MoreCircle,
-                                contentDescription = stringResource(R.string.more_options)
-                            )
+                            IconButton(
+                                onClick = { showMorePopup = true },
+                                holdDownState = showMorePopup
+                            ) {
+                                Icon(
+                                    imageVector = MiuixIcons.MoreCircle,
+                                    contentDescription = stringResource(R.string.more_options)
+                                )
+                            }
                         }
                     }
-                }
-            )
-        }
+                )
+            }
+        },
+        contentWindowInsets = WindowInsets.systemBars
+            .add(WindowInsets.displayCutout)
+            .only(WindowInsetsSides.Horizontal)
     ) { contentPadding ->
-        LazyColumn(
-            state = listState,
-            contentPadding = PaddingValues(
-                top = contentPadding.calculateTopPadding(),
-                bottom = bottomInset + 12.dp
-            ),
-            modifier = Modifier
-                .fillMaxSize()
-                .nestedScroll(scrollBehavior.nestedScrollConnection)
-                .overScrollVertical()
-                .scrollEndHaptic()
-                .animateContentSize()
-        ) {
+        Box(modifier = if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier) {
+            LazyColumn(
+                state = listState,
+                contentPadding = PaddingValues(
+                    top = contentPadding.calculateTopPadding(),
+                    bottom = bottomInset + 12.dp
+                ),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = 16.dp)
+                    .nestedScroll(scrollBehavior.nestedScrollConnection)
+                    .overScrollVertical()
+                    .scrollEndHaptic()
+                    .animateContentSize()
+            ) {
             item {
                 AppHeader(uiState)
             }
@@ -231,6 +250,7 @@ fun AppInfoScreen(
                 }
             }
             item { Spacer(Modifier.size(1.dp)) }
+            }
         }
     }
 

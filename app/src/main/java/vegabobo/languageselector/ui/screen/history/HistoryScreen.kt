@@ -20,6 +20,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -31,6 +32,7 @@ import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Delete
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -39,6 +41,8 @@ import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import vegabobo.languageselector.R
 import vegabobo.languageselector.ui.components.AppListItem
 import vegabobo.languageselector.ui.components.BackButton
+import vegabobo.languageselector.ui.components.BlurredTopBar
+import vegabobo.languageselector.ui.components.rememberAppBlurBackdrop
 
 @Composable
 fun HistoryScreen(
@@ -50,65 +54,72 @@ fun HistoryScreen(
     val scrollBehavior = MiuixScrollBehavior()
     val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
         WindowInsets.captionBar.asPaddingValues().calculateBottomPadding()
+    val backdrop = rememberAppBlurBackdrop()
+    val barColor = if (backdrop != null) Color.Transparent else MiuixTheme.colorScheme.surface
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = stringResource(R.string.history),
-                navigationIcon = { BackButton(navigateBack) },
-                actions = {
-                    IconButton(
-                        onClick = viewModel::clearHistory,
-                        enabled = state.apps.isNotEmpty()
-                    ) {
-                        Icon(
-                            imageVector = MiuixIcons.Delete,
-                            contentDescription = stringResource(R.string.clear_history)
-                        )
-                    }
-                },
-                scrollBehavior = scrollBehavior
-            )
+            BlurredTopBar(backdrop = backdrop) {
+                TopAppBar(
+                    title = stringResource(R.string.history),
+                    color = barColor,
+                    navigationIcon = { BackButton(navigateBack) },
+                    actions = {
+                        IconButton(
+                            onClick = viewModel::clearHistory,
+                            enabled = state.apps.isNotEmpty()
+                        ) {
+                            Icon(
+                                imageVector = MiuixIcons.Delete,
+                                contentDescription = stringResource(R.string.clear_history)
+                            )
+                        }
+                    },
+                    scrollBehavior = scrollBehavior
+                )
+            }
         },
         contentWindowInsets = WindowInsets.systemBars
             .add(WindowInsets.displayCutout)
             .only(WindowInsetsSides.Horizontal)
     ) { innerPadding ->
-        when {
-            state.isLoading -> Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentAlignment = Alignment.Center
-            ) { InfiniteProgressIndicator() }
+        Box(modifier = if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier) {
+            when {
+                state.isLoading -> Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    contentAlignment = Alignment.Center
+                ) { InfiniteProgressIndicator() }
 
-            state.apps.isEmpty() -> Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = stringResource(R.string.history_empty),
-                    style = MiuixTheme.textStyles.body1,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                )
-            }
+                state.apps.isEmpty() -> Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = stringResource(R.string.history_empty),
+                        style = MiuixTheme.textStyles.body1,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                    )
+                }
 
-            else -> LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .nestedScroll(scrollBehavior.nestedScrollConnection)
-                    .scrollEndHaptic()
-                    .overScrollVertical(),
-                contentPadding = PaddingValues(
-                    top = innerPadding.calculateTopPadding() + 6.dp,
-                    bottom = bottomInset
-                ),
-                overscrollEffect = null
-            ) {
-                items(state.apps, key = { it.pkg }) { app ->
-                    AppListItem(app = app, onClickApp = navigateToApp)
+                else -> LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .nestedScroll(scrollBehavior.nestedScrollConnection)
+                        .scrollEndHaptic()
+                        .overScrollVertical(),
+                    contentPadding = PaddingValues(
+                        top = innerPadding.calculateTopPadding() + 6.dp,
+                        bottom = bottomInset
+                    ),
+                    overscrollEffect = null
+                ) {
+                    items(state.apps, key = { it.pkg }) { app ->
+                        AppListItem(app = app, onClickApp = navigateToApp)
+                    }
                 }
             }
         }

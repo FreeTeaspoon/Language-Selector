@@ -10,6 +10,10 @@ enum class AppSortField {
     Name, PackageName, InstallTime, UpdateTime
 }
 
+enum class AppRowTag {
+    Modified, System
+}
+
 data class AppListPreferences(
     val sortField: AppSortField = AppSortField.Name,
     val descending: Boolean = false,

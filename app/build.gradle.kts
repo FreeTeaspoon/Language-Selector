@@ -17,8 +17,8 @@ android {
         applicationId = "vegabobo.languageselector"
         minSdk = 33
         targetSdk = 37
-        versionCode = 13
-        versionName = "1.04.9"
+        versionCode = 14
+        versionName = "1.04.10"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -89,6 +89,7 @@ dependencies {
     implementation(libs.miuix.icons)
     implementation(libs.miuix.preference)
     implementation(libs.miuix.navigation3.ui)
+    implementation(libs.miuix.blur)
     implementation(libs.appiconloader)
     implementation(libs.kotlinx.serialization.json)
 

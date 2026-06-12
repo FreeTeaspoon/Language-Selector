@@ -11,15 +11,41 @@ enum class OperationMode { NONE, SHIZUKU, ROOT }
 
 enum class SearchPhase { Collapsed, Expanding, Expanded, Collapsing }
 
-enum class SearchResultState { Empty, Results }
+enum class SearchResultState { Default, Empty, Results }
 
 data class AppSearchState(
     val phase: SearchPhase = SearchPhase.Collapsed,
     val query: String = "",
     val collapsedOffsetY: Float = 0f,
-    val resultState: SearchResultState = SearchResultState.Empty
+    val resultState: SearchResultState = SearchResultState.Default
 ) {
     val isVisible: Boolean get() = phase != SearchPhase.Collapsed
+    fun isCollapsed(): Boolean = phase == SearchPhase.Collapsed
+}
+
+fun AppSearchState.openRequested(): AppSearchState =
+    if (phase == SearchPhase.Collapsed) copy(phase = SearchPhase.Expanding) else this
+
+fun AppSearchState.animationFinished(): AppSearchState = when (phase) {
+    SearchPhase.Expanding -> copy(phase = SearchPhase.Expanded)
+    SearchPhase.Collapsing -> AppSearchState(collapsedOffsetY = collapsedOffsetY)
+    else -> this
+}
+
+fun AppSearchState.closeRequested(): AppSearchState =
+    if (query.isNotEmpty()) {
+        copy(query = "", resultState = SearchResultState.Default)
+    } else {
+        copy(phase = SearchPhase.Collapsing)
+    }
+
+fun AppSearchState.cancelRequested(): AppSearchState =
+    copy(phase = SearchPhase.Collapsing, query = "", resultState = SearchResultState.Default)
+
+fun searchResultStateFor(query: String, hasResults: Boolean): SearchResultState = when {
+    query.isBlank() -> SearchResultState.Default
+    hasResults -> SearchResultState.Results
+    else -> SearchResultState.Empty
 }
 
 data class MainScreenState(

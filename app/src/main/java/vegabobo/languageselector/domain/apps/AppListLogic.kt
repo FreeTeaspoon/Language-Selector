@@ -4,6 +4,11 @@ import java.text.Collator
 import java.util.Locale
 
 object AppListLogic {
+    fun rowTags(app: AppInfo): List<AppRowTag> = buildList {
+        if (app.isModified()) add(AppRowTag.Modified)
+        if (app.isSystemApp()) add(AppRowTag.System)
+    }
+
     fun visibleApps(
         apps: List<AppInfo>,
         preferences: AppListPreferences,

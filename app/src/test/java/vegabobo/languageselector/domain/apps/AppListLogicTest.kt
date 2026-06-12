@@ -161,6 +161,21 @@ class AppListLogicTest {
         )
     }
 
+    @Test
+    fun rowTags_includeModifiedAndSystemInDisplayOrder() {
+        assertEquals(
+            listOf(AppRowTag.Modified, AppRowTag.System),
+            AppListLogic.rowTags(
+                app("system-modified", system = true, state = ModifiedState.Modified)
+            )
+        )
+    }
+
+    @Test
+    fun rowTags_areEmptyForUnmodifiedUserApps() {
+        assertTrue(AppListLogic.rowTags(app("user")).isEmpty())
+    }
+
     private fun preferences(
         sortField: AppSortField = AppSortField.Name,
         descending: Boolean = false,

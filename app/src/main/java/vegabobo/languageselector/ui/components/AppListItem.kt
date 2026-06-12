@@ -1,16 +1,14 @@
 package vegabobo.languageselector.ui.components
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,6 +28,8 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.PressFeedbackType
 import vegabobo.languageselector.R
 import vegabobo.languageselector.domain.apps.AppInfo
+import vegabobo.languageselector.domain.apps.AppListLogic
+import vegabobo.languageselector.domain.apps.AppRowTag
 
 @Composable
 fun AppListItem(
@@ -37,6 +37,7 @@ fun AppListItem(
     onClickApp: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val tags = AppListLogic.rowTags(app)
     Card(
         modifier = modifier
             .padding(horizontal = 12.dp)
@@ -73,8 +74,19 @@ fun AppListItem(
                     softWrap = false
                 )
             }
-            if (app.isModified()) {
-                ModifiedStatusTag(modifier = Modifier.padding(start = 16.dp))
+            if (tags.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.padding(start = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    tags.forEach { tag ->
+                        when (tag) {
+                            AppRowTag.Modified -> ModifiedStatusTag()
+                            AppRowTag.System -> SystemStatusTag()
+                        }
+                    }
+                }
             }
             val layoutDirection = LocalLayoutDirection.current
             Image(
@@ -94,20 +106,20 @@ fun AppListItem(
 
 @Composable
 fun ModifiedStatusTag(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier.background(
-            color = MiuixTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f),
-            shape = RoundedCornerShape(6.dp)
-        )
-    ) {
-        Text(
-            text = stringResource(R.string.modified_tag),
-            color = MiuixTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f),
-            fontSize = 9.sp,
-            fontWeight = FontWeight(750),
-            maxLines = 1,
-            softWrap = false,
-            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-        )
-    }
+    AppStatusTag(
+        label = stringResource(R.string.modified_tag),
+        backgroundColor = MiuixTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f),
+        contentColor = MiuixTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f),
+        modifier = modifier
+    )
+}
+
+@Composable
+fun SystemStatusTag(modifier: Modifier = Modifier) {
+    AppStatusTag(
+        label = stringResource(R.string.system_tag),
+        backgroundColor = MiuixTheme.colorScheme.primary.copy(alpha = 0.8f),
+        contentColor = MiuixTheme.colorScheme.onPrimary,
+        modifier = modifier
+    )
 }

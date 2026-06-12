@@ -208,32 +208,23 @@ class MainScreenVm @Inject constructor(
     )
 
     fun openSearch() = _uiState.update {
-        it.copy(search = it.search.copy(phase = SearchPhase.Expanding))
+        it.copy(search = it.search.openRequested())
     }
 
     fun finishSearchExpansion() = _uiState.update {
-        it.copy(search = it.search.copy(phase = SearchPhase.Expanded))
+        it.copy(search = it.search.animationFinished())
     }
 
-    fun requestSearchClose() {
-        if (_uiState.value.search.query.isNotEmpty()) {
-            onSearchQueryChange("")
-        } else {
-            _uiState.update { it.copy(search = it.search.copy(phase = SearchPhase.Collapsing)) }
-        }
+    fun requestSearchClose() = updateDerived {
+        it.copy(search = it.search.closeRequested())
     }
 
     fun cancelSearch() = updateDerived {
-        it.copy(
-            search = it.search.copy(
-                phase = SearchPhase.Collapsing,
-                query = ""
-            )
-        )
+        it.copy(search = it.search.cancelRequested())
     }
 
     fun finishSearchCollapse() = updateDerived {
-        it.copy(search = AppSearchState(collapsedOffsetY = it.search.collapsedOffsetY))
+        it.copy(search = it.search.animationFinished())
     }
 
     fun onSearchQueryChange(query: String) = updateDerived {
@@ -284,7 +275,7 @@ class MainScreenVm @Inject constructor(
             visibleHomeApps = visible,
             searchResults = results,
             search = state.search.copy(
-                resultState = if (results.isEmpty()) SearchResultState.Empty else SearchResultState.Results
+                resultState = searchResultStateFor(state.search.query, results.isNotEmpty())
             )
         )
     }

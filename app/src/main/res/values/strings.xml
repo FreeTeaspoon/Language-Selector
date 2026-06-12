@@ -44,6 +44,7 @@
     <string name="sort_reverse">Reverse order</string>
     <string name="modified_only">Modified apps only</string>
     <string name="modified_tag">MODIFIED</string>
+    <string name="system_tag">SYSTEM</string>
     <string name="refresh_pulling">Pull to refresh</string>
     <string name="refresh_release">Release to refresh</string>
     <string name="refresh_refreshing">Refreshing</string>
