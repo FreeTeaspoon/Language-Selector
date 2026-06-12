@@ -2,6 +2,7 @@ package vegabobo.languageselector.ui.screen.appinfo
 
 import android.content.pm.ApplicationInfo
 import androidx.compose.runtime.mutableStateListOf
+import vegabobo.languageselector.domain.apps.ModifiedState
 import java.util.Locale
 
 data class LocaleRegion(
@@ -23,6 +24,7 @@ data class AppInfoState(
     val appName: String = "",
     val appPackage: String = "",
     val currentLanguage: String = "",
+    val modifiedState: ModifiedState = ModifiedState.Unknown,
     val listOfSuggestedLanguages: MutableList<SingleLocale> = mutableStateListOf(),
     val listOfPinnedLanguages: MutableList<SingleLocale> = mutableStateListOf(),
     val selectedLanguage: Int = -1,

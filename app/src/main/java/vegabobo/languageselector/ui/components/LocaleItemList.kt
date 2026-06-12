@@ -1,26 +1,34 @@
 package vegabobo.languageselector.ui.components
 
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.utils.PressFeedbackType
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun LocaleItemList(
     itemText: String,
     onLongClick: () -> Unit = {},
     onClick: () -> Unit
 ) {
-    BasicComponent(
-        title = itemText,
-        modifier = Modifier.combinedClickable(
-            onClick = onClick,
-            onLongClick = onLongClick
-        ),
-        insideMargin = PaddingValues(horizontal = 28.dp, vertical = 12.dp)
-    )
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 3.dp),
+        insideMargin = PaddingValues(0.dp),
+        pressFeedbackType = PressFeedbackType.Sink,
+        showIndication = true,
+        onClick = onClick,
+        onLongPress = onLongClick
+    ) {
+        BasicComponent(
+            title = itemText,
+            insideMargin = PaddingValues(horizontal = 16.dp, vertical = 14.dp)
+        )
+    }
 }

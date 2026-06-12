@@ -26,6 +26,7 @@ import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDe
 import kotlinx.serialization.Serializable
 import vegabobo.languageselector.ui.screen.about.AboutScreen
 import vegabobo.languageselector.ui.screen.appinfo.AppInfoScreen
+import vegabobo.languageselector.ui.screen.history.HistoryScreen
 import vegabobo.languageselector.ui.screen.main.MainScreen
 
 @Serializable
@@ -38,6 +39,9 @@ sealed interface AppRoute : NavKey {
 
     @Serializable
     data object About : AppRoute
+
+    @Serializable
+    data object History : AppRoute
 }
 
 private class Navigator(
@@ -79,6 +83,7 @@ fun Navigation(
             entry<AppRoute.Home> {
                 MainScreen(
                     navigateToAppScreen = { navigator.push(AppRoute.AppInfo(it)) },
+                    navigateToHistory = { navigator.push(AppRoute.History) },
                     navigateToAbout = { navigator.push(AppRoute.About) },
                     requestShizukuAccess = requestShizukuAccess
                 )
@@ -91,6 +96,12 @@ fun Navigation(
             }
             entry<AppRoute.About> {
                 AboutScreen(navigateBack = { navigator.pop() })
+            }
+            entry<AppRoute.History> {
+                HistoryScreen(
+                    navigateBack = { navigator.pop() },
+                    navigateToApp = { navigator.push(AppRoute.AppInfo(it)) }
+                )
             }
         }
     )

@@ -22,6 +22,7 @@ import vegabobo.languageselector.BuildConfig
 import vegabobo.languageselector.LocaleManager
 import vegabobo.languageselector.data.apps.AppRepository
 import vegabobo.languageselector.data.locales.LocaleRepository
+import vegabobo.languageselector.domain.apps.ModifiedState
 import java.util.Locale
 import javax.inject.Inject
 
@@ -50,6 +51,7 @@ class AppInfoVm @Inject constructor(
                     appName = loadedApp.name,
                     appPackage = loadedApp.pkg,
                     applicationInfo = loadedApp.applicationInfo,
+                    modifiedState = loadedApp.modifiedState,
                     listOfAllLanguages = localeManager.localeList
                 )
             }
@@ -75,9 +77,19 @@ class AppInfoVm @Inject constructor(
 
     private suspend fun updateCurrentLanguageStateInternal() {
         if (!::appInfo.isInitialized) return
-        val currentLocale = localeRepository.getApplicationLocales(appInfo.packageName) ?: return
-        if (!currentLocale.isEmpty) {
-            _uiState.update { it.copy(currentLanguage = currentLocale[0].capDisplayName()) }
+        val currentLocale = localeRepository.getApplicationLocales(appInfo.packageName)
+        _uiState.update {
+            when {
+                currentLocale == null -> it.copy(modifiedState = ModifiedState.Unavailable)
+                currentLocale.isEmpty -> it.copy(
+                    currentLanguage = "",
+                    modifiedState = ModifiedState.Unmodified
+                )
+                else -> it.copy(
+                    currentLanguage = currentLocale[0].capDisplayName(),
+                    modifiedState = ModifiedState.Modified
+                )
+            }
         }
     }
 
@@ -120,7 +132,12 @@ class AppInfoVm @Inject constructor(
         if (!::appInfo.isInitialized) return
         viewModelScope.launch(Dispatchers.IO) {
             localeRepository.setApplicationLocales(appInfo.packageName, LocaleList())
-            _uiState.update { it.copy(currentLanguage = "") }
+            _uiState.update {
+                it.copy(
+                    currentLanguage = "",
+                    modifiedState = ModifiedState.Unmodified
+                )
+            }
             updateCurrentLanguageStateInternal()
         }
     }

@@ -1,38 +1,52 @@
 package vegabobo.languageselector.domain.apps
 
-object AppListLogic {
-    fun sortApps(apps: List<AppInfo>, prioritizeModified: Boolean): List<AppInfo> {
-        val byName = compareBy<AppInfo> { it.name.lowercase() }
-        return if (prioritizeModified) {
-            apps.sortedWith(compareBy<AppInfo> { !it.isModified() }.then(byName))
-        } else {
-            apps.sortedWith(byName)
-        }
-    }
+import java.text.Collator
+import java.util.Locale
 
-    fun visibleHomeApps(
+object AppListLogic {
+    fun visibleApps(
         apps: List<AppInfo>,
-        isShowingSystemApps: Boolean
+        preferences: AppListPreferences,
+        collator: Collator = Collator.getInstance(Locale.getDefault())
+    ): List<AppInfo> = sortApps(
+        apps = apps.filter { app ->
+            (!preferences.modifiedOnly || app.isModified()) &&
+                (preferences.showSystemApps || !app.isSystemApp() || app.isModified())
+        },
+        preferences = preferences,
+        collator = collator
+    )
+
+    fun sortApps(
+        apps: List<AppInfo>,
+        preferences: AppListPreferences,
+        collator: Collator = Collator.getInstance(Locale.getDefault())
     ): List<AppInfo> {
-        if (isShowingSystemApps) return apps
-        return apps.filterNot { it.isSystemApp() && !it.isModified() }
+        val primary = when (preferences.sortField) {
+            AppSortField.Name -> Comparator<AppInfo> { left, right ->
+                collator.compare(left.name, right.name)
+            }
+            AppSortField.PackageName -> compareBy(String.CASE_INSENSITIVE_ORDER) { it.pkg }
+            AppSortField.InstallTime -> compareBy<AppInfo> { it.firstInstallTime }
+            AppSortField.UpdateTime -> compareBy<AppInfo> { it.lastUpdateTime }
+        }
+        val orderedPrimary = if (preferences.descending) primary.reversed() else primary
+        return apps.sortedWith(
+            orderedPrimary.thenBy(String.CASE_INSENSITIVE_ORDER) { it.pkg }
+        )
     }
 
     fun searchResults(
         apps: List<AppInfo>,
+        preferences: AppListPreferences,
         query: String,
-        selectedLabels: Set<AppLabels>
+        collator: Collator = Collator.getInstance(Locale.getDefault())
     ): List<AppInfo> {
         if (query.isBlank()) return emptyList()
-        val lowerQuery = query.lowercase()
-        return apps.filter { app ->
-            if (selectedLabels.contains(AppLabels.MODIFIED) && !app.isModified()) {
-                return@filter false
-            }
-            if (!selectedLabels.contains(AppLabels.SYSTEM_APP) && app.isSystemApp()) {
-                return@filter false
-            }
-            app.pkg.lowercase().contains(lowerQuery) || app.name.lowercase().contains(lowerQuery)
+        val needle = query.trim().lowercase(Locale.getDefault())
+        return visibleApps(apps, preferences, collator).filter { app ->
+            app.name.lowercase(Locale.getDefault()).contains(needle) ||
+                app.pkg.lowercase(Locale.ROOT).contains(needle)
         }
     }
 }

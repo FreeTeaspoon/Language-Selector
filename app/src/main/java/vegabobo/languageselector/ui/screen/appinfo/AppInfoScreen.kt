@@ -4,46 +4,65 @@ import android.widget.Toast
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.captionBar
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.OpenInNew
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import vegabobo.languageselector.R
-import vegabobo.languageselector.ui.components.AppIconImage
-import vegabobo.languageselector.ui.components.BackButton
-import vegabobo.languageselector.ui.components.LocaleItemList
-import vegabobo.languageselector.ui.components.QuickTextButton
-import vegabobo.languageselector.ui.components.Title
-import vegabobo.languageselector.ui.screen.BaseScreen
-import kotlinx.coroutines.launch
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.navigationevent.NavigationEventInfo
 import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.rememberNavigationEventState
+import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.DropdownImpl
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.ListPopupColumn
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
+import top.yukonga.miuix.kmp.basic.PopupPositionProvider
+import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.MoreCircle
+import top.yukonga.miuix.kmp.overlay.OverlayListPopup
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.overScrollVertical
+import top.yukonga.miuix.kmp.utils.scrollEndHaptic
+import vegabobo.languageselector.R
+import vegabobo.languageselector.domain.apps.ModifiedState
+import vegabobo.languageselector.ui.components.AppIconImage
+import vegabobo.languageselector.ui.components.BackButton
+import vegabobo.languageselector.ui.components.LocaleItemList
+import vegabobo.languageselector.ui.components.ModifiedStatusTag
 
 @Composable
 fun AppInfoScreen(
@@ -52,186 +71,233 @@ fun AppInfoScreen(
     appInfoVm: AppInfoVm = hiltViewModel(),
 ) {
     val uiState by appInfoVm.uiState.collectAsState()
-    val ctx = LocalContext.current
+    val context = LocalContext.current
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
+    val scrollBehavior = MiuixScrollBehavior()
     val selectedLanguageBackState = rememberNavigationEventState(NavigationEventInfo.None)
+    val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
+        WindowInsets.captionBar.asPaddingValues().calculateBottomPadding()
+    var showMorePopup by remember { mutableStateOf(false) }
 
     fun pinToast(locale: String) {
-        val pinTxt =
-            ctx.resources.getString(R.string.pinned_ok).format(locale)
-        Toast.makeText(ctx, pinTxt, Toast.LENGTH_SHORT).show()
+        Toast.makeText(
+            context,
+            context.getString(R.string.pinned_ok).format(locale),
+            Toast.LENGTH_SHORT
+        ).show()
     }
 
     fun unpinToast(locale: String) {
-        val pinTxt =
-            ctx.resources.getString(R.string.unpinned).format(locale)
-        Toast.makeText(ctx, pinTxt, Toast.LENGTH_SHORT).show()
+        Toast.makeText(
+            context,
+            context.getString(R.string.unpinned).format(locale),
+            Toast.LENGTH_SHORT
+        ).show()
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(appId) {
         appInfoVm.initFromAppId(appId)
         appInfoVm.updatePinnedLangsFromSP()
     }
-    BaseScreen(
-        title = stringResource(R.string.app_language),
-        navIcon = {
-            BackButton { navigateBack() }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = stringResource(R.string.app_language),
+                navigationIcon = { BackButton(navigateBack) },
+                scrollBehavior = scrollBehavior,
+                actions = {
+                    Box {
+                        OverlayListPopup(
+                            show = showMorePopup,
+                            alignment = PopupPositionProvider.Align.TopEnd,
+                            enableWindowDim = false,
+                            onDismissRequest = { showMorePopup = false }
+                        ) {
+                            val labels = listOf(
+                                stringResource(R.string.open),
+                                stringResource(R.string.close),
+                                stringResource(R.string.settings)
+                            )
+                            ListPopupColumn {
+                                labels.forEachIndexed { index, label ->
+                                    DropdownImpl(
+                                        text = label,
+                                        optionSize = labels.size,
+                                        isSelected = false,
+                                        index = index,
+                                        onSelectedIndexChange = {
+                                            showMorePopup = false
+                                            when (index) {
+                                                0 -> appInfoVm.onClickOpen()
+                                                1 -> appInfoVm.onClickForceClose()
+                                                else -> appInfoVm.onClickSettings()
+                                            }
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                        IconButton(
+                            onClick = { showMorePopup = true },
+                            holdDownState = showMorePopup
+                        ) {
+                            Icon(
+                                imageVector = MiuixIcons.MoreCircle,
+                                contentDescription = stringResource(R.string.more_options)
+                            )
+                        }
+                    }
+                }
+            )
         }
-    ) {
+    ) { contentPadding ->
         LazyColumn(
             state = listState,
+            contentPadding = PaddingValues(
+                top = contentPadding.calculateTopPadding(),
+                bottom = bottomInset + 12.dp
+            ),
             modifier = Modifier
-                .padding(top = it.calculateTopPadding())
-                .animateContentSize(),
+                .fillMaxSize()
+                .nestedScroll(scrollBehavior.nestedScrollConnection)
+                .overScrollVertical()
+                .scrollEndHaptic()
+                .animateContentSize()
         ) {
             item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (uiState.applicationInfo != null) {
-                        AppIconImage(
-                            modifier = Modifier.size(72.dp),
-                            applicationInfo = uiState.applicationInfo!!,
-                            label = uiState.appName,
-                            size = 72.dp
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .size(72.dp)
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(MiuixTheme.colorScheme.secondaryContainer)
-                        )
-                    }
-                    Column(
-                        modifier = Modifier
-                            .padding(start = 16.dp)
-                            .weight(1f)
-                    ) {
-                        Text(
-                            text = uiState.appName,
-                            style = MiuixTheme.textStyles.title2,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = uiState.appPackage,
-                            style = MiuixTheme.textStyles.body2,
-                            color = MiuixTheme.colorScheme.onSurfaceSecondary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = uiState.currentLanguage.ifEmpty { stringResource(R.string.system_default) },
-                            style = MiuixTheme.textStyles.body2,
-                            color = MiuixTheme.colorScheme.onSurfaceSecondary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-            }
-
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    QuickTextButton(
-                        modifier = Modifier.weight(1f),
-                        onClick = { appInfoVm.onClickOpen() },
-                        icon = Icons.AutoMirrored.Outlined.OpenInNew,
-                        text = stringResource(R.string.open)
-                    )
-                    QuickTextButton(
-                        modifier = Modifier.weight(1f),
-                        onClick = { appInfoVm.onClickForceClose() },
-                        icon = Icons.Outlined.Close,
-                        text = stringResource(R.string.close)
-                    )
-                    QuickTextButton(
-                        modifier = Modifier.weight(1f),
-                        onClick = { appInfoVm.onClickSettings() },
-                        icon = Icons.Outlined.Settings,
-                        text = stringResource(R.string.settings)
-                    )
-                }
+                AppHeader(uiState)
             }
 
             if (uiState.selectedLanguage != -1) {
-                item { Title(stringResource(R.string.region)) }
+                item { SmallTitle(text = stringResource(R.string.region)) }
                 items(uiState.listOfAllLanguages[uiState.selectedLanguage].locales.size) { index ->
-                    val thisLangReg =
-                        uiState.listOfAllLanguages[uiState.selectedLanguage].locales[index]
+                    val locale = uiState.listOfAllLanguages[uiState.selectedLanguage].locales[index]
                     LocaleItemList(
-                        itemText = thisLangReg.name,
+                        itemText = locale.name,
                         onClick = {
-                            appInfoVm.onClickLocale(thisLangReg)
+                            appInfoVm.onClickLocale(locale)
                             appInfoVm.onBackWhenSelectedLang()
                             coroutineScope.launch { listState.scrollToItem(0) }
                         },
                         onLongClick = {
-                            pinToast(thisLangReg.name)
-                            appInfoVm.onPinLang(thisLangReg)
+                            pinToast(locale.name)
+                            appInfoVm.onPinLang(locale)
                         }
                     )
                 }
             } else {
-                if (uiState.listOfPinnedLanguages.size != 0) {
-                    item { Title(stringResource(R.string.pinned)) }
+                if (uiState.listOfPinnedLanguages.isNotEmpty()) {
+                    item { SmallTitle(text = stringResource(R.string.pinned)) }
                     items(uiState.listOfPinnedLanguages.size) { index ->
-                        val thisLanguage = uiState.listOfPinnedLanguages[index]
+                        val locale = uiState.listOfPinnedLanguages[index]
                         LocaleItemList(
-                            itemText = thisLanguage.name,
-                            onClick = { appInfoVm.onClickLocale(thisLanguage) },
+                            itemText = locale.name,
+                            onClick = { appInfoVm.onClickLocale(locale) },
                             onLongClick = {
-                                unpinToast(thisLanguage.name)
-                                appInfoVm.onRemovePin(thisLanguage)
+                                unpinToast(locale.name)
+                                appInfoVm.onRemovePin(locale)
                             }
                         )
                     }
                 }
 
-                item { Title(stringResource(R.string.user_languages)) }
+                item { SmallTitle(text = stringResource(R.string.user_languages)) }
                 item {
-                    LocaleItemList(stringResource(R.string.system_default)) { appInfoVm.onClickResetLang() }
+                    LocaleItemList(stringResource(R.string.system_default)) {
+                        appInfoVm.onClickResetLang()
+                    }
                 }
                 items(uiState.listOfSuggestedLanguages.size) { index ->
-                    val thisLanguage = uiState.listOfSuggestedLanguages[index]
+                    val locale = uiState.listOfSuggestedLanguages[index]
                     LocaleItemList(
-                        itemText = thisLanguage.name,
-                        onClick = { appInfoVm.onClickLocale(thisLanguage) },
+                        itemText = locale.name,
+                        onClick = { appInfoVm.onClickLocale(locale) },
                         onLongClick = {
-                            pinToast(thisLanguage.name)
-                            appInfoVm.onPinLang(thisLanguage)
+                            pinToast(locale.name)
+                            appInfoVm.onPinLang(locale)
                         }
                     )
                 }
 
-                item { Title(stringResource(R.string.all_languages)) }
+                item { SmallTitle(text = stringResource(R.string.all_languages)) }
                 items(uiState.listOfAllLanguages.size) { index ->
-                    val thisLanguage = uiState.listOfAllLanguages[index]
-                    LocaleItemList(thisLanguage.language) {
+                    val locale = uiState.listOfAllLanguages[index]
+                    LocaleItemList(locale.language) {
                         appInfoVm.onClickSingleLanguage(index)
                         coroutineScope.launch { listState.scrollToItem(0) }
                     }
                 }
             }
-            item { Spacer(modifier = Modifier.padding(it.calculateBottomPadding())) }
+            item { Spacer(Modifier.size(1.dp)) }
         }
     }
 
     NavigationBackHandler(
         state = selectedLanguageBackState,
         isBackEnabled = uiState.selectedLanguage != -1,
-        onBackCompleted = { appInfoVm.onBackWhenSelectedLang() }
+        onBackCompleted = appInfoVm::onBackWhenSelectedLang
     )
+}
 
+@Composable
+private fun AppHeader(state: AppInfoState) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp)
+            .padding(bottom = 12.dp),
+        insideMargin = PaddingValues(12.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (state.applicationInfo != null) {
+                AppIconImage(
+                    applicationInfo = state.applicationInfo,
+                    label = state.appName,
+                    size = 64.dp,
+                    modifier = Modifier.size(64.dp)
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(MiuixTheme.colorScheme.secondaryContainer)
+                )
+            }
+            Column(
+                modifier = Modifier
+                    .padding(start = 14.dp)
+                    .weight(1f)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = state.appName,
+                        style = MiuixTheme.textStyles.title2,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    if (state.modifiedState == ModifiedState.Modified) {
+                        ModifiedStatusTag(modifier = Modifier.padding(start = 8.dp))
+                    }
+                }
+                Text(
+                    text = state.currentLanguage.ifEmpty { stringResource(R.string.system_default) },
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurfaceSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = state.appPackage,
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
 }
