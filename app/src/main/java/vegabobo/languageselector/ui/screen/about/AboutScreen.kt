@@ -30,8 +30,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
@@ -40,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.graphics.drawable.toBitmap
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
@@ -55,6 +59,7 @@ import vegabobo.languageselector.BuildConfig
 import vegabobo.languageselector.R
 import vegabobo.languageselector.ui.components.BackButton
 import vegabobo.languageselector.ui.components.BlurredTopBar
+import vegabobo.languageselector.ui.components.HyperOsAboutBackground
 import vegabobo.languageselector.ui.components.rememberAppBlurBackdrop
 
 data class AboutDependency(
@@ -138,52 +143,87 @@ private fun AboutScreenContent(
                 )
             }
         },
-        popupHost = {},
         contentWindowInsets = WindowInsets.systemBars
             .add(WindowInsets.displayCutout)
             .only(WindowInsetsSides.Horizontal)
     ) { innerPadding ->
         Box(modifier = if (barBackdrop != null) Modifier.layerBackdrop(barBackdrop) else Modifier) {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .nestedScroll(scrollBehavior.nestedScrollConnection)
-                    .overScrollVertical()
-                    .scrollEndHaptic(),
-                contentPadding = PaddingValues(
-                    top = innerPadding.calculateTopPadding(),
-                    bottom = bottomInset + 12.dp
-                ),
-                overscrollEffect = null
-            ) {
-                item {
-                    AboutHero(
-                        appName = state.appName,
-                        versionName = state.versionName,
-                        scrollProgress = scrollProgress
-                    )
-                }
-                item { SmallTitle(text = stringResource(R.string.app)) }
-                item {
-                    AboutPreferenceCard(
-                        title = stringResource(R.string.ghrepo),
-                        summary = stringResource(R.string.view_source),
-                        onClick = { actions.onOpenUrl(state.sourceUrl) }
-                    )
-                }
-                item { SmallTitle(text = stringResource(R.string.deps_libs)) }
-                items(state.dependencies.size) { index ->
-                    val dependency = state.dependencies[index]
-                    AboutPreferenceCard(
-                        title = dependency.name,
-                        summary = dependency.summary,
-                        enabled = dependency.url != null,
-                        onClick = { dependency.url?.let(actions.onOpenUrl) }
-                    )
+            HyperOsAboutBackground(scrollProgress = scrollProgress) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .nestedScroll(scrollBehavior.nestedScrollConnection)
+                        .overScrollVertical()
+                        .scrollEndHaptic(),
+                    contentPadding = PaddingValues(
+                        top = innerPadding.calculateTopPadding(),
+                        bottom = bottomInset + 12.dp
+                    ),
+                    overscrollEffect = null
+                ) {
+                    item {
+                        AboutHero(
+                            appName = state.appName,
+                            versionName = state.versionName,
+                            scrollProgress = scrollProgress
+                        )
+                    }
+                    item { SmallTitle(text = stringResource(R.string.app)) }
+                    item {
+                        AboutPreferenceCard(
+                            title = stringResource(R.string.ghrepo),
+                            summary = stringResource(R.string.view_source),
+                            onClick = { actions.onOpenUrl(state.sourceUrl) }
+                        )
+                    }
+                    item { SmallTitle(text = stringResource(R.string.deps_libs)) }
+                    items(state.dependencies.size) { index ->
+                        val dependency = state.dependencies[index]
+                        AboutPreferenceCard(
+                            title = dependency.name,
+                            summary = dependency.summary,
+                            enabled = dependency.url != null,
+                            onClick = { dependency.url?.let(actions.onOpenUrl) }
+                        )
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun rememberLauncherIconBitmap(): ImageBitmap? {
+    val context = LocalContext.current
+    return remember(context) {
+        runCatching {
+            context.packageManager
+                .getApplicationIcon(context.packageName)
+                .toBitmap(width = 192, height = 192)
+                .asImageBitmap()
+        }.getOrNull()
+    }
+}
+
+@Composable
+private fun AboutLauncherIcon(
+    appName: String,
+    modifier: Modifier = Modifier
+) {
+    val bitmap = rememberLauncherIconBitmap()
+    if (bitmap != null) {
+        Image(
+            bitmap = bitmap,
+            contentDescription = appName,
+            modifier = modifier
+        )
+    } else {
+        Image(
+            painter = painterResource(R.drawable.ic_launcher_foreground),
+            contentDescription = appName,
+            modifier = modifier
+        )
     }
 }
 
@@ -207,9 +247,8 @@ private fun AboutHero(
             },
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Image(
-            painter = painterResource(R.drawable.ic_launcher_foreground),
-            contentDescription = appName,
+        AboutLauncherIcon(
+            appName = appName,
             modifier = Modifier
                 .size(100.dp)
                 .clip(RoundedCornerShape(24.dp))

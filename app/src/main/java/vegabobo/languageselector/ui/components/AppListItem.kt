@@ -34,8 +34,7 @@ import vegabobo.languageselector.domain.apps.AppRowTag
 @Composable
 fun AppListItem(
     app: AppInfo,
-    onClickApp: (String) -> Boolean,
-    enabled: Boolean = true,
+    onClickApp: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val tags = AppListLogic.rowTags(app)
@@ -44,13 +43,9 @@ fun AppListItem(
             .padding(horizontal = 12.dp)
             .padding(bottom = 12.dp),
         insideMargin = PaddingValues(start = 10.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
-        onClick = if (enabled) {
-            { onClickApp(app.pkg) }
-        } else {
-            null
-        },
+        onClick = { onClickApp(app.pkg) },
         pressFeedbackType = PressFeedbackType.Sink,
-        showIndication = enabled
+        showIndication = true
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             AppIconImage(

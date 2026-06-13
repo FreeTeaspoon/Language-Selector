@@ -62,37 +62,31 @@ import vegabobo.languageselector.domain.apps.AppSortField
 import vegabobo.languageselector.ui.components.AppDropdownItem
 import vegabobo.languageselector.ui.components.AppListItem
 import vegabobo.languageselector.ui.components.AppPopupDefaults
-import vegabobo.languageselector.ui.components.AppSearchOverlay
+import vegabobo.languageselector.ui.components.AppSearchPager
 import vegabobo.languageselector.ui.components.BlurredTopBar
 import vegabobo.languageselector.ui.components.CollapsedAppSearch
+import vegabobo.languageselector.ui.components.SearchBox
+import vegabobo.languageselector.ui.components.TopAppBarAnim
 import vegabobo.languageselector.ui.components.rememberAppBlurBackdrop
 
 data class MainScreenActions(
-    val onAppClick: (AppInfo) -> Boolean,
-    val onHistoryClick: () -> Boolean,
-    val onAboutClick: () -> Boolean,
-    val appNavigationEnabled: Boolean,
+    val onAppClick: (AppInfo) -> Unit,
+    val onHistoryClick: () -> Unit,
+    val onAboutClick: () -> Unit,
     val onRefresh: () -> Unit,
     val onSortFieldChange: (AppSortField) -> Unit,
     val onSortDirectionToggle: () -> Unit,
     val onSystemAppsToggle: () -> Unit,
     val onModifiedOnlyToggle: () -> Unit,
-    val onSearchOpen: () -> Unit,
-    val onSearchQueryChange: (String) -> Unit,
-    val onSearchExpansionFinished: () -> Unit,
-    val onSearchCloseRequested: () -> Unit,
-    val onSearchCancelRequested: () -> Unit,
-    val onSearchCollapseFinished: () -> Unit,
-    val onSearchOffsetChanged: (Dp) -> Unit,
+    val onSearchStatusChange: (AppSearchStatus) -> Unit,
     val onRequestShizuku: () -> Unit
 )
 
 @Composable
 fun MainScreen(
-    navigateToAppScreen: (String) -> Boolean,
-    navigateToHistory: () -> Boolean,
-    navigateToAbout: () -> Boolean,
-    appNavigationEnabled: Boolean,
+    navigateToAppScreen: (String) -> Unit,
+    navigateToHistory: () -> Unit,
+    navigateToAbout: () -> Unit,
     requestShizukuAccess: () -> Unit,
     mainScreenVm: MainScreenVm = hiltViewModel()
 ) {
@@ -103,28 +97,17 @@ fun MainScreen(
         state = state,
         actions = MainScreenActions(
             onAppClick = { app ->
-                if (navigateToAppScreen(app.pkg)) {
-                    mainScreenVm.onClickApp(app)
-                    true
-                } else {
-                    false
-                }
+                navigateToAppScreen(app.pkg)
+                mainScreenVm.onClickApp(app)
             },
             onHistoryClick = navigateToHistory,
             onAboutClick = navigateToAbout,
-            appNavigationEnabled = appNavigationEnabled,
             onRefresh = mainScreenVm::refresh,
             onSortFieldChange = mainScreenVm::updateSortField,
             onSortDirectionToggle = mainScreenVm::toggleSortDirection,
             onSystemAppsToggle = mainScreenVm::toggleSystemAppsVisibility,
             onModifiedOnlyToggle = mainScreenVm::toggleModifiedOnly,
-            onSearchOpen = mainScreenVm::openSearch,
-            onSearchQueryChange = mainScreenVm::onSearchQueryChange,
-            onSearchExpansionFinished = mainScreenVm::finishSearchExpansion,
-            onSearchCloseRequested = mainScreenVm::requestSearchClose,
-            onSearchCancelRequested = mainScreenVm::cancelSearch,
-            onSearchCollapseFinished = mainScreenVm::finishSearchCollapse,
-            onSearchOffsetChanged = mainScreenVm::updateSearchOffset,
+            onSearchStatusChange = mainScreenVm::updateSearchStatus,
             onRequestShizuku = requestShizukuAccess
         )
     )
@@ -147,115 +130,110 @@ fun MainScreenContent(
     var showMorePopup by remember { mutableStateOf(false) }
     val backdrop = rememberAppBlurBackdrop()
     val barColor = if (backdrop != null) Color.Transparent else MiuixTheme.colorScheme.surface
+    val searchStatus = state.search.copy(label = stringResource(R.string.search))
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             topBar = {
                 BlurredTopBar(backdrop = backdrop) {
-                    TopAppBar(
-                        title = stringResource(R.string.apps),
-                        color = barColor,
-                        scrollBehavior = scrollBehavior,
-                        navigationIcon = {
-                            IconButton(onClick = { actions.onHistoryClick() }) {
-                                Icon(
-                                    imageVector = MiuixIcons.Notes,
-                                    contentDescription = stringResource(R.string.history)
+                    searchStatus.TopAppBarAnim(backgroundColor = barColor) {
+                        TopAppBar(
+                            title = stringResource(R.string.apps),
+                            color = barColor,
+                            scrollBehavior = scrollBehavior,
+                            navigationIcon = {
+                                IconButton(onClick = { actions.onHistoryClick() }) {
+                                    Icon(
+                                        imageVector = MiuixIcons.Notes,
+                                        contentDescription = stringResource(R.string.history)
+                                    )
+                                }
+                            },
+                            actions = {
+                                Box {
+                                    OverlayListPopup(
+                                        show = showSortPopup,
+                                        popupPositionProvider = AppPopupDefaults.MenuPositionProvider,
+                                        alignment = PopupPositionProvider.Align.TopEnd,
+                                        onDismissRequest = { showSortPopup = false }
+                                    ) {
+                                        SortPopupContent(
+                                            selected = state.preferences.sortField,
+                                            descending = state.preferences.descending,
+                                            onSelect = {
+                                                actions.onSortFieldChange(it)
+                                                showSortPopup = false
+                                            },
+                                            onReverse = {
+                                                actions.onSortDirectionToggle()
+                                                showSortPopup = false
+                                            }
+                                        )
+                                    }
+                                    IconButton(
+                                        onClick = { showSortPopup = true },
+                                        holdDownState = showSortPopup
+                                    ) {
+                                        Icon(
+                                            imageVector = MiuixIcons.Sort,
+                                            contentDescription = stringResource(R.string.sort)
+                                        )
+                                    }
+                                }
+                                Box {
+                                    OverlayListPopup(
+                                        show = showMorePopup,
+                                        popupPositionProvider = AppPopupDefaults.MenuPositionProvider,
+                                        alignment = PopupPositionProvider.Align.TopEnd,
+                                        onDismissRequest = { showMorePopup = false }
+                                    ) {
+                                        MorePopupContent(
+                                            showSystemApps = state.preferences.showSystemApps,
+                                            modifiedOnly = state.preferences.modifiedOnly,
+                                            onSystemAppsToggle = {
+                                                actions.onSystemAppsToggle()
+                                                showMorePopup = false
+                                            },
+                                            onModifiedOnlyToggle = {
+                                                actions.onModifiedOnlyToggle()
+                                                showMorePopup = false
+                                            },
+                                            onAboutClick = {
+                                                showMorePopup = false
+                                                actions.onAboutClick()
+                                            }
+                                        )
+                                    }
+                                    IconButton(
+                                        onClick = { showMorePopup = true },
+                                        holdDownState = showMorePopup
+                                    ) {
+                                        Icon(
+                                            imageVector = MiuixIcons.MoreCircle,
+                                            contentDescription = stringResource(R.string.more_options)
+                                        )
+                                    }
+                                }
+                            },
+                            bottomContent = {
+                                CollapsedAppSearch(
+                                    status = searchStatus,
+                                    topPadding = dynamicSearchPadding,
+                                    onStatusChange = actions.onSearchStatusChange
                                 )
                             }
-                        },
-                        actions = {
-                            Box {
-                                OverlayListPopup(
-                                    show = showSortPopup,
-                                    popupPositionProvider = AppPopupDefaults.MenuPositionProvider,
-                                    alignment = PopupPositionProvider.Align.TopEnd,
-                                    onDismissRequest = { showSortPopup = false }
-                                ) {
-                                    SortPopupContent(
-                                        selected = state.preferences.sortField,
-                                        descending = state.preferences.descending,
-                                        onSelect = {
-                                            actions.onSortFieldChange(it)
-                                            showSortPopup = false
-                                        },
-                                        onReverse = {
-                                            actions.onSortDirectionToggle()
-                                            showSortPopup = false
-                                        }
-                                    )
-                                }
-                                IconButton(
-                                    onClick = { showSortPopup = true },
-                                    holdDownState = showSortPopup
-                                ) {
-                                    Icon(
-                                        imageVector = MiuixIcons.Sort,
-                                        contentDescription = stringResource(R.string.sort)
-                                    )
-                                }
-                            }
-                            Box {
-                                OverlayListPopup(
-                                    show = showMorePopup,
-                                    popupPositionProvider = AppPopupDefaults.MenuPositionProvider,
-                                    alignment = PopupPositionProvider.Align.TopEnd,
-                                    onDismissRequest = { showMorePopup = false }
-                                ) {
-                                    MorePopupContent(
-                                        showSystemApps = state.preferences.showSystemApps,
-                                        modifiedOnly = state.preferences.modifiedOnly,
-                                        onSystemAppsToggle = {
-                                            actions.onSystemAppsToggle()
-                                            showMorePopup = false
-                                        },
-                                        onModifiedOnlyToggle = {
-                                            actions.onModifiedOnlyToggle()
-                                            showMorePopup = false
-                                        },
-                                        onAboutClick = {
-                                            showMorePopup = false
-                                            actions.onAboutClick()
-                                        }
-                                    )
-                                }
-                                IconButton(
-                                    onClick = { showMorePopup = true },
-                                    holdDownState = showMorePopup
-                                ) {
-                                    Icon(
-                                        imageVector = MiuixIcons.MoreCircle,
-                                        contentDescription = stringResource(R.string.more_options)
-                                    )
-                                }
-                            }
-                        },
-                        bottomContent = {
-                            CollapsedAppSearch(
-                                label = stringResource(R.string.search),
-                                topPadding = dynamicSearchPadding,
-                                visible = state.search.phase == SearchPhase.Collapsed ||
-                                    state.search.phase == SearchPhase.Collapsing,
-                                onClick = actions.onSearchOpen,
-                                onOffsetChanged = actions.onSearchOffsetChanged
-                            )
-                        }
-                    )
+                        )
+                    }
                 }
             },
             popupHost = {
                 Box(Modifier.fillMaxSize()) {
-                    AppSearchOverlay(
-                        state = state.search,
+                    AppSearchPager(
+                        status = searchStatus,
                         results = state.searchResults,
                         bottomPadding = bottomInset,
-                        appNavigationEnabled = actions.appNavigationEnabled,
-                        onQueryChange = actions.onSearchQueryChange,
                         onAppClick = actions.onAppClick,
-                        onExpansionFinished = actions.onSearchExpansionFinished,
-                        onCloseRequested = actions.onSearchCloseRequested,
-                        onCancelRequested = actions.onSearchCancelRequested,
-                        onCollapseFinished = actions.onSearchCollapseFinished
+                        onStatusChange = actions.onSearchStatusChange
                     )
                     MiuixPopupHost()
                 }
@@ -264,61 +242,62 @@ fun MainScreenContent(
                 .add(WindowInsets.displayCutout)
                 .only(WindowInsetsSides.Horizontal)
         ) { innerPadding ->
-            Box(modifier = if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier) {
-                if (state.isLoading && state.listOfApps.isEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(innerPadding),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        InfiniteProgressIndicator()
-                    }
-                } else {
-                    PullToRefresh(
-                        isRefreshing = state.isRefreshing,
-                        onRefresh = actions.onRefresh,
-                        pullToRefreshState = pullState,
-                        topAppBarScrollBehavior = scrollBehavior,
-                        refreshTexts = listOf(
-                            stringResource(R.string.refresh_pulling),
-                            stringResource(R.string.refresh_release),
-                            stringResource(R.string.refresh_refreshing),
-                            stringResource(R.string.refresh_complete)
-                        ),
-                        contentPadding = PaddingValues(top = innerPadding.calculateTopPadding() + 6.dp)
-                    ) {
-                        LazyColumn(
-                            state = listState,
+            searchStatus.SearchBox {
+                Box(modifier = if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier) {
+                    if (state.isLoading && state.listOfApps.isEmpty()) {
+                        Box(
                             modifier = Modifier
-                                .fillMaxHeight()
-                                .scrollEndHaptic()
-                                .overScrollVertical()
-                                .nestedScroll(scrollBehavior.nestedScrollConnection),
-                            contentPadding = PaddingValues(
-                                top = innerPadding.calculateTopPadding() + 6.dp,
-                                bottom = bottomInset
-                            ),
-                            overscrollEffect = null
+                                .fillMaxSize()
+                                .padding(innerPadding),
+                            contentAlignment = Alignment.Center
                         ) {
-                            if (state.preferences.modifiedOnly && state.isLocaleRefreshRunning) {
-                                item(key = "modified-progress") {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillParentMaxWidth()
-                                            .padding(bottom = 8.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        CircularProgressIndicator()
+                            InfiniteProgressIndicator()
+                        }
+                    } else {
+                        PullToRefresh(
+                            isRefreshing = state.isRefreshing,
+                            onRefresh = actions.onRefresh,
+                            pullToRefreshState = pullState,
+                            topAppBarScrollBehavior = scrollBehavior,
+                            refreshTexts = listOf(
+                                stringResource(R.string.refresh_pulling),
+                                stringResource(R.string.refresh_release),
+                                stringResource(R.string.refresh_refreshing),
+                                stringResource(R.string.refresh_complete)
+                            ),
+                            contentPadding = PaddingValues(top = innerPadding.calculateTopPadding() + 6.dp)
+                        ) {
+                            LazyColumn(
+                                state = listState,
+                                modifier = Modifier
+                                    .fillMaxHeight()
+                                    .scrollEndHaptic()
+                                    .overScrollVertical()
+                                    .nestedScroll(scrollBehavior.nestedScrollConnection),
+                                contentPadding = PaddingValues(
+                                    top = innerPadding.calculateTopPadding() + 6.dp,
+                                    bottom = bottomInset
+                                ),
+                                overscrollEffect = null
+                            ) {
+                                if (state.preferences.modifiedOnly && state.isLocaleRefreshRunning) {
+                                    item(key = "modified-progress") {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillParentMaxWidth()
+                                                .padding(bottom = 8.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            CircularProgressIndicator()
+                                        }
                                     }
                                 }
-                            }
-                            items(state.visibleHomeApps, key = { it.pkg }) { app ->
-                                AppListItem(
-                                    app = app,
-                                    enabled = actions.appNavigationEnabled,
-                                    onClickApp = { actions.onAppClick(app) }
-                                )
+                                items(state.visibleHomeApps, key = { it.pkg }) { app ->
+                                    AppListItem(
+                                        app = app,
+                                        onClickApp = { actions.onAppClick(app) }
+                                    )
+                                }
                             }
                         }
                     }

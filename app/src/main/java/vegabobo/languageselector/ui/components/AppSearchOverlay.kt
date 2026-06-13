@@ -16,6 +16,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -44,6 +45,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -58,6 +61,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.max
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.navigationevent.NavigationEventInfo
@@ -72,99 +76,101 @@ import top.yukonga.miuix.kmp.icon.basic.SearchCleanup
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import vegabobo.languageselector.R
 import vegabobo.languageselector.domain.apps.AppInfo
-import vegabobo.languageselector.ui.screen.main.AppSearchState
+import vegabobo.languageselector.ui.screen.main.AppSearchStatus
 import vegabobo.languageselector.ui.screen.main.SearchPhase
 import vegabobo.languageselector.ui.screen.main.SearchResultState
+import vegabobo.languageselector.ui.screen.main.animationFinished
+import vegabobo.languageselector.ui.screen.main.cancelRequested
+import vegabobo.languageselector.ui.screen.main.closeRequested
+
+@Composable
+fun AppSearchStatus.TopAppBarAnim(
+    modifier: Modifier = Modifier,
+    backgroundColor: Color = MiuixTheme.colorScheme.surface,
+    content: @Composable () -> Unit
+) {
+    Box(modifier = modifier) {
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(backgroundColor)
+        )
+        Box(
+            modifier = Modifier.graphicsLayer {
+                alpha = if (shouldCollapsed()) 1f else 0f
+            }
+        ) {
+            content()
+        }
+    }
+}
+
+@Composable
+fun AppSearchStatus.SearchBox(
+    content: @Composable () -> Unit
+) {
+    if (shouldCollapsed()) content()
+}
 
 @Composable
 fun CollapsedAppSearch(
-    label: String,
+    status: AppSearchStatus,
     topPadding: Dp,
-    visible: Boolean,
-    onClick: () -> Unit,
-    onOffsetChanged: (Dp) -> Unit,
+    onStatusChange: (AppSearchStatus) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp)
-            .padding(top = topPadding, bottom = 6.dp)
-            .graphicsLayer { alpha = if (visible) 1f else 0f }
-    ) {
-        InputField(
-            query = "",
-            onQueryChange = {},
-            label = label,
-            leadingIcon = {
-                Icon(
-                    imageVector = MiuixIcons.Basic.Search,
-                    contentDescription = null,
-                    tint = MiuixTheme.colorScheme.onSurfaceContainerHigh,
-                    modifier = Modifier
-                        .size(44.dp)
-                        .padding(start = 16.dp, end = 8.dp)
-                )
-            },
-            enabled = false,
-            expanded = false,
-            onExpandedChange = {},
-            onSearch = {},
-            modifier = Modifier.fillMaxWidth()
-        )
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .onGloballyPositioned {
-                    onOffsetChanged(with(density) { it.positionInWindow().y.toDp() })
-                }
-                .then(
-                    if (visible) {
-                        Modifier.clickable(
-                            interactionSource = null,
-                            indication = null,
-                            onClick = onClick
-                        )
-                    } else {
-                        Modifier
+            .graphicsLayer { alpha = if (status.isCollapsed()) 1f else 0f }
+            .onGloballyPositioned { coordinates ->
+                if (status.isCollapsed()) {
+                    val newOffset = with(density) { coordinates.positionInWindow().y.toDp() }
+                    if (status.offsetY != newOffset) {
+                        onStatusChange(status.copy(offsetY = newOffset))
                     }
-                )
-        )
+                }
+            }
+            .then(
+                if (status.isCollapsed()) {
+                    Modifier.pointerInput(Unit) {
+                        detectTapGestures {
+                            onStatusChange(status.copy(current = SearchPhase.Expanding))
+                        }
+                    }
+                } else {
+                    Modifier
+                }
+            )
+    ) {
+        SearchBarFake(label = status.label, topPadding = topPadding)
     }
 }
 
 @Composable
-fun AppSearchOverlay(
-    state: AppSearchState,
+fun AppSearchPager(
+    status: AppSearchStatus,
     results: List<AppInfo>,
     bottomPadding: Dp,
-    appNavigationEnabled: Boolean,
-    onQueryChange: (String) -> Unit,
-    onAppClick: (AppInfo) -> Boolean,
-    onExpansionFinished: () -> Unit,
-    onCloseRequested: () -> Unit,
-    onCancelRequested: () -> Unit,
-    onCollapseFinished: () -> Unit
+    onStatusChange: (AppSearchStatus) -> Unit,
+    onAppClick: (AppInfo) -> Unit
 ) {
     val systemTop = WindowInsets.systemBars.asPaddingValues().calculateTopPadding()
-    val collapsedTop = state.activeAnchorY
-    val shouldExpand = state.phase == SearchPhase.Expanding || state.phase == SearchPhase.Expanded
-    val searchTopPadding = 12.dp
     val topPadding by animateDpAsState(
-        targetValue = if (shouldExpand) systemTop + 5.dp else collapsedTop,
+        targetValue = if (status.shouldExpand()) {
+            systemTop + 5.dp
+        } else {
+            max(status.offsetY, 0.dp)
+        },
         animationSpec = tween(300, easing = LinearOutSlowInEasing),
         label = "AppSearchTopPadding",
         finishedListener = {
-            when (state.phase) {
-                SearchPhase.Expanding -> onExpansionFinished()
-                SearchPhase.Collapsing -> onCollapseFinished()
-                else -> Unit
-            }
+            onStatusChange(status.animationFinished())
         }
     )
     val surfaceAlpha by animateFloatAsState(
-        targetValue = if (shouldExpand) 1f else 0f,
+        targetValue = if (status.shouldExpand()) 1f else 0f,
         animationSpec = tween(200, easing = FastOutSlowInEasing),
         label = "AppSearchSurfaceAlpha"
     )
@@ -175,34 +181,31 @@ fun AppSearchOverlay(
             .fillMaxSize()
             .zIndex(20f)
             .drawBehind { drawRect(surfaceColor.copy(alpha = surfaceAlpha)) }
-            .then(
-                if (state.isVisible) {
-                    Modifier
-                        .pointerInput(Unit) {}
-                        .semantics { onClick { false } }
-                } else {
-                    Modifier
-                }
-            )
+            .semantics { onClick { false } }
+            .then(if (status.isVisible) Modifier.pointerInput(Unit) {} else Modifier)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = topPadding)
-                .then(if (!state.isCollapsed()) Modifier.background(surfaceColor) else Modifier),
+                .then(if (!status.isCollapsed()) Modifier.background(surfaceColor) else Modifier),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (!state.isCollapsed()) {
-                ExpandedSearchField(
-                    query = state.query,
-                    onQueryChange = onQueryChange,
-                    requestFocus = state.phase == SearchPhase.Expanding,
-                    topPadding = searchTopPadding,
-                    modifier = Modifier.weight(1f)
-                )
+            if (!status.isCollapsed()) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .background(surfaceColor)
+                ) {
+                    ExpandedSearchField(
+                        status = status,
+                        onStatusChange = onStatusChange,
+                        topPadding = 12.dp
+                    )
+                }
             }
             AnimatedVisibility(
-                visible = shouldExpand,
+                visible = status.isExpand() || status.isAnimatingExpand(),
                 enter = expandHorizontally() + slideInHorizontally(initialOffsetX = { it }),
                 exit = shrinkHorizontally() + slideOutHorizontally(targetOffsetX = { it })
             ) {
@@ -211,23 +214,27 @@ fun AppSearchOverlay(
                     fontWeight = FontWeight.Bold,
                     color = MiuixTheme.colorScheme.primary,
                     modifier = Modifier
-                        .padding(start = 4.dp, end = 16.dp, top = searchTopPadding, bottom = 6.dp)
+                        .padding(start = 4.dp, end = 16.dp, top = 12.dp, bottom = 6.dp)
                         .clickable(
                             interactionSource = null,
                             indication = null,
-                            enabled = state.phase == SearchPhase.Expanded
-                        ) { onCancelRequested() }
+                            enabled = status.isExpand()
+                        ) {
+                            onStatusChange(status.cancelRequested())
+                        }
                 )
             }
         }
 
         AnimatedVisibility(
-            visible = state.phase == SearchPhase.Expanded,
+            visible = status.isExpand(),
             enter = fadeIn(),
             exit = fadeOut(),
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .zIndex(1f)
         ) {
-            when (state.resultState) {
+            when (status.resultStatus) {
                 SearchResultState.Default,
                 SearchResultState.Empty -> Box(Modifier.fillMaxSize())
 
@@ -238,7 +245,6 @@ fun AppSearchOverlay(
                     items(results, key = { it.pkg }) { app ->
                         AppListItem(
                             app = app,
-                            enabled = appNavigationEnabled,
                             onClickApp = { onAppClick(app) }
                         )
                     }
@@ -250,34 +256,33 @@ fun AppSearchOverlay(
     val backState = rememberNavigationEventState(NavigationEventInfo.None)
     NavigationBackHandler(
         state = backState,
-        isBackEnabled = state.isVisible,
-        onBackCompleted = onCloseRequested
+        isBackEnabled = status.isVisible,
+        onBackCompleted = { onStatusChange(status.closeRequested()) }
     )
 }
 
 @Composable
 private fun ExpandedSearchField(
-    query: String,
-    onQueryChange: (String) -> Unit,
-    requestFocus: Boolean,
+    status: AppSearchStatus,
+    onStatusChange: (AppSearchStatus) -> Unit,
     topPadding: Dp,
     modifier: Modifier = Modifier
 ) {
     val focusRequester = remember { FocusRequester() }
-    var value by remember { mutableStateOf(TextFieldValue(query)) }
+    var value by remember { mutableStateOf(TextFieldValue(status.searchText)) }
 
-    LaunchedEffect(query) {
-        if (value.text != query) value = TextFieldValue(query)
+    LaunchedEffect(status.searchText) {
+        if (value.text != status.searchText) value = TextFieldValue(status.searchText)
     }
-    LaunchedEffect(requestFocus) {
-        if (requestFocus) focusRequester.requestFocus()
+    LaunchedEffect(status.isAnimatingExpand()) {
+        if (status.isAnimatingExpand()) focusRequester.requestFocus()
     }
 
     BasicTextField(
         value = value,
         onValueChange = {
             value = it
-            onQueryChange(it.text)
+            onStatusChange(status.copy(searchText = it.text))
         },
         singleLine = true,
         textStyle = TextStyle(
@@ -285,16 +290,20 @@ private fun ExpandedSearchField(
             fontSize = 17.sp,
             color = MiuixTheme.colorScheme.onSurface
         ),
-        cursorBrush = androidx.compose.ui.graphics.SolidColor(MiuixTheme.colorScheme.primary),
+        cursorBrush = SolidColor(MiuixTheme.colorScheme.primary),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         modifier = modifier
+            .fillMaxWidth()
             .padding(horizontal = 12.dp)
             .padding(top = topPadding, bottom = 6.dp)
             .heightIn(min = 45.dp)
             .background(MiuixTheme.colorScheme.surfaceContainerHigh, CircleShape)
             .focusRequester(focusRequester),
         decorationBox = { field ->
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Icon(
                     imageVector = MiuixIcons.Basic.Search,
                     contentDescription = null,
@@ -305,7 +314,7 @@ private fun ExpandedSearchField(
                 )
                 Box(modifier = Modifier.weight(1f)) { field() }
                 AnimatedVisibility(
-                    visible = query.isNotEmpty(),
+                    visible = status.searchText.isNotEmpty(),
                     enter = fadeIn() + scaleIn(),
                     exit = fadeOut() + scaleOut()
                 ) {
@@ -318,11 +327,41 @@ private fun ExpandedSearchField(
                             .padding(start = 8.dp, end = 16.dp)
                             .clickable(interactionSource = null, indication = null) {
                                 value = TextFieldValue("")
-                                onQueryChange("")
+                                onStatusChange(status.copy(searchText = ""))
                             }
                     )
                 }
             }
         }
+    )
+}
+
+@Composable
+private fun SearchBarFake(
+    label: String,
+    topPadding: Dp
+) {
+    InputField(
+        query = "",
+        onQueryChange = {},
+        label = label,
+        leadingIcon = {
+            Icon(
+                imageVector = MiuixIcons.Basic.Search,
+                contentDescription = null,
+                tint = MiuixTheme.colorScheme.onSurfaceContainerHigh,
+                modifier = Modifier
+                    .size(44.dp)
+                    .padding(start = 16.dp, end = 8.dp)
+            )
+        },
+        enabled = false,
+        expanded = false,
+        onExpandedChange = {},
+        onSearch = {},
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp)
+            .padding(top = topPadding, bottom = 6.dp)
     )
 }

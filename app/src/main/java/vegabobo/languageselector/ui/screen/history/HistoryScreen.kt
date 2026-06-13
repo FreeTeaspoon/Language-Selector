@@ -47,10 +47,11 @@ import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Delete
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.MiuixPopupUtils.Companion.MiuixPopupHost
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
-import top.yukonga.miuix.kmp.window.WindowDialog
 import vegabobo.languageselector.R
 import vegabobo.languageselector.ui.components.AppListItem
 import vegabobo.languageselector.ui.components.BackButton
@@ -60,8 +61,7 @@ import vegabobo.languageselector.ui.components.rememberAppBlurBackdrop
 @Composable
 fun HistoryScreen(
     navigateBack: () -> Unit,
-    navigateToApp: (String) -> Boolean,
-    appNavigationEnabled: Boolean,
+    navigateToApp: (String) -> Unit,
     viewModel: HistoryScreenVm = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -94,6 +94,7 @@ fun HistoryScreen(
                 )
             }
         },
+        popupHost = { MiuixPopupHost() },
         contentWindowInsets = WindowInsets.systemBars
             .add(WindowInsets.displayCutout)
             .only(WindowInsetsSides.Horizontal)
@@ -135,7 +136,6 @@ fun HistoryScreen(
                     items(state.apps, key = { it.pkg }) { app ->
                         AppListItem(
                             app = app,
-                            enabled = appNavigationEnabled,
                             onClickApp = navigateToApp
                         )
                     }
@@ -167,7 +167,7 @@ private fun ClearHistoryDialog(
         onBackCompleted = onDismiss
     )
 
-    WindowDialog(
+    OverlayDialog(
         show = show,
         onDismissRequest = onDismiss,
         title = stringResource(R.string.clear_history_title)

@@ -7,84 +7,79 @@ import org.junit.Test
 class MainScreenStateTest {
     @Test
     fun openRequested_movesCollapsedSearchToExpanding() {
-        val next = AppSearchState(collapsedOffsetY = 32.dp).openRequested()
+        val next = AppSearchStatus(offsetY = 32.dp).openRequested()
 
-        assertEquals(SearchPhase.Expanding, next.phase)
-        assertEquals(32.dp, next.activeAnchorY)
+        assertEquals(SearchPhase.Expanding, next.current)
+        assertEquals(32.dp, next.offsetY)
     }
 
     @Test
     fun animationFinished_movesExpandingToExpanded() {
         assertEquals(
             SearchPhase.Expanded,
-            AppSearchState(phase = SearchPhase.Expanding).animationFinished().phase
+            AppSearchStatus(current = SearchPhase.Expanding).animationFinished().current
         )
     }
 
     @Test
     fun animationFinished_movesCollapsingToCollapsedAndPreservesOffset() {
-        val next = AppSearchState(
-            phase = SearchPhase.Collapsing,
-            collapsedOffsetY = 24.dp,
-            activeAnchorY = 80.dp,
-            query = "settings",
-            resultState = SearchResultState.Results
+        val next = AppSearchStatus(
+            current = SearchPhase.Collapsing,
+            offsetY = 24.dp,
+            searchText = "settings",
+            resultStatus = SearchResultState.Results
         ).animationFinished()
 
-        assertEquals(SearchPhase.Collapsed, next.phase)
-        assertEquals(24.dp, next.collapsedOffsetY)
-        assertEquals(24.dp, next.activeAnchorY)
-        assertEquals("", next.query)
-        assertEquals(SearchResultState.Default, next.resultState)
+        assertEquals(SearchPhase.Collapsed, next.current)
+        assertEquals(24.dp, next.offsetY)
+        assertEquals("", next.searchText)
+        assertEquals(SearchResultState.Default, next.resultStatus)
     }
 
     @Test
-    fun measuredOffset_updatesActiveAnchorOnlyWhenCollapsed() {
-        val collapsed = AppSearchState().withMeasuredOffset(18.dp)
-        val expanded = AppSearchState(
-            phase = SearchPhase.Expanded,
-            collapsedOffsetY = 18.dp,
-            activeAnchorY = 18.dp
+    fun measuredOffset_updatesOnlyWhenCollapsed() {
+        val collapsed = AppSearchStatus().withMeasuredOffset(18.dp)
+        val expanded = AppSearchStatus(
+            current = SearchPhase.Expanded,
+            offsetY = 18.dp
         ).withMeasuredOffset(42.dp)
 
-        assertEquals(18.dp, collapsed.collapsedOffsetY)
-        assertEquals(18.dp, collapsed.activeAnchorY)
-        assertEquals(42.dp, expanded.collapsedOffsetY)
-        assertEquals(18.dp, expanded.activeAnchorY)
+        assertEquals(18.dp, collapsed.offsetY)
+        assertEquals(18.dp, expanded.offsetY)
     }
 
     @Test
     fun backClearsQueryBeforeCollapsing() {
-        val next = AppSearchState(
-            phase = SearchPhase.Expanded,
-            query = "settings",
-            resultState = SearchResultState.Results
+        val next = AppSearchStatus(
+            current = SearchPhase.Expanded,
+            searchText = "settings",
+            resultStatus = SearchResultState.Results
         ).closeRequested()
 
-        assertEquals(SearchPhase.Expanded, next.phase)
-        assertEquals("", next.query)
-        assertEquals(SearchResultState.Default, next.resultState)
+        assertEquals(SearchPhase.Expanded, next.current)
+        assertEquals("", next.searchText)
+        assertEquals(SearchResultState.Default, next.resultStatus)
     }
 
     @Test
     fun backCollapsesExpandedSearchWhenQueryIsEmpty() {
         assertEquals(
             SearchPhase.Collapsing,
-            AppSearchState(phase = SearchPhase.Expanded).closeRequested().phase
+            AppSearchStatus(current = SearchPhase.Expanded).closeRequested().current
         )
     }
 
     @Test
     fun cancelClearsAndCollapsesSearch() {
-        val next = AppSearchState(
-            phase = SearchPhase.Expanded,
-            query = "browser",
-            resultState = SearchResultState.Results
+        val next = AppSearchStatus(
+            current = SearchPhase.Expanded,
+            searchText = "browser",
+            resultStatus = SearchResultState.Results
         ).cancelRequested()
 
-        assertEquals(SearchPhase.Collapsing, next.phase)
-        assertEquals("", next.query)
-        assertEquals(SearchResultState.Default, next.resultState)
+        assertEquals(SearchPhase.Collapsing, next.current)
+        assertEquals("", next.searchText)
+        assertEquals(SearchResultState.Default, next.resultStatus)
     }
 
     @Test

@@ -1,7 +1,7 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
-val appVersionCode = 16
-val appVersionName = "1.05.1"
+val appVersionCode = 17
+val appVersionName = "1.05.2"
 
 plugins {
     alias(libs.plugins.com.android.application)
@@ -97,6 +97,7 @@ dependencies {
     implementation(libs.miuix.preference)
     implementation(libs.miuix.navigation3.ui)
     implementation(libs.miuix.blur)
+    implementation(libs.miuix.shader)
     implementation(libs.appiconloader)
     implementation(libs.kotlinx.serialization.json)
 

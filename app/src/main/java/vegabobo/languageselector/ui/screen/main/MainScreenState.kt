@@ -11,54 +11,63 @@ import vegabobo.languageselector.domain.apps.AppListPreferences
 
 enum class OperationMode { NONE, SHIZUKU, ROOT }
 
-enum class SearchPhase { Collapsed, Expanding, Expanded, Collapsing }
+enum class SearchPhase { Expanded, Expanding, Collapsed, Collapsing }
 
 enum class SearchResultState { Default, Empty, Results }
 
-data class AppSearchState(
-    val phase: SearchPhase = SearchPhase.Collapsed,
-    val query: String = "",
-    val collapsedOffsetY: Dp = 0.dp,
-    val activeAnchorY: Dp = 0.dp,
-    val resultState: SearchResultState = SearchResultState.Default
+data class AppSearchStatus(
+    val label: String = "",
+    val searchText: String = "",
+    val current: SearchPhase = SearchPhase.Collapsed,
+    val offsetY: Dp = 0.dp,
+    val resultStatus: SearchResultState = SearchResultState.Default
 ) {
-    val isVisible: Boolean get() = phase != SearchPhase.Collapsed
-    fun isCollapsed(): Boolean = phase == SearchPhase.Collapsed
+    val isVisible: Boolean get() = current != SearchPhase.Collapsed
+    fun isExpand(): Boolean = current == SearchPhase.Expanded
+    fun isCollapsed(): Boolean = current == SearchPhase.Collapsed
+    fun shouldExpand(): Boolean = current == SearchPhase.Expanded || current == SearchPhase.Expanding
+    fun shouldCollapsed(): Boolean = current == SearchPhase.Collapsed || current == SearchPhase.Collapsing
+    fun isAnimatingExpand(): Boolean = current == SearchPhase.Expanding
 }
 
-fun AppSearchState.openRequested(): AppSearchState =
-    if (phase == SearchPhase.Collapsed) {
-        copy(phase = SearchPhase.Expanding, activeAnchorY = collapsedOffsetY)
+fun AppSearchStatus.openRequested(): AppSearchStatus =
+    if (current == SearchPhase.Collapsed) {
+        copy(current = SearchPhase.Expanding)
     } else {
         this
     }
 
-fun AppSearchState.animationFinished(): AppSearchState = when (phase) {
-    SearchPhase.Expanding -> copy(phase = SearchPhase.Expanded)
-    SearchPhase.Collapsing -> AppSearchState(
-        collapsedOffsetY = collapsedOffsetY,
-        activeAnchorY = collapsedOffsetY
+fun AppSearchStatus.animationFinished(): AppSearchStatus = when (current) {
+    SearchPhase.Expanding -> copy(current = SearchPhase.Expanded)
+    SearchPhase.Collapsing -> copy(
+        searchText = "",
+        current = SearchPhase.Collapsed,
+        resultStatus = SearchResultState.Default
     )
     else -> this
 }
 
-fun AppSearchState.closeRequested(): AppSearchState = when {
-    query.isNotEmpty() -> copy(query = "", resultState = SearchResultState.Default)
-    phase == SearchPhase.Expanding || phase == SearchPhase.Expanded -> copy(phase = SearchPhase.Collapsing)
+fun AppSearchStatus.closeRequested(): AppSearchStatus = when {
+    searchText.isNotEmpty() -> copy(searchText = "", resultStatus = SearchResultState.Default)
+    current == SearchPhase.Expanding || current == SearchPhase.Expanded -> copy(current = SearchPhase.Collapsing)
     else -> this
 }
 
-fun AppSearchState.cancelRequested(): AppSearchState = when (phase) {
+fun AppSearchStatus.cancelRequested(): AppSearchStatus = when (current) {
     SearchPhase.Expanding,
-    SearchPhase.Expanded -> copy(phase = SearchPhase.Collapsing, query = "", resultState = SearchResultState.Default)
+    SearchPhase.Expanded -> copy(
+        searchText = "",
+        current = SearchPhase.Collapsing,
+        resultStatus = SearchResultState.Default
+    )
     else -> this
 }
 
-fun AppSearchState.withMeasuredOffset(offsetY: Dp): AppSearchState {
-    return if (phase == SearchPhase.Collapsed) {
-        copy(collapsedOffsetY = offsetY, activeAnchorY = offsetY)
+fun AppSearchStatus.withMeasuredOffset(offsetY: Dp): AppSearchStatus {
+    return if (current == SearchPhase.Collapsed) {
+        copy(offsetY = offsetY)
     } else {
-        copy(collapsedOffsetY = offsetY)
+        this
     }
 }
 
@@ -74,7 +83,7 @@ data class MainScreenState(
     val searchResults: List<AppInfo> = emptyList(),
     val operationMode: OperationMode = OperationMode.NONE,
     val preferences: AppListPreferences = AppListPreferences(),
-    val search: AppSearchState = AppSearchState(),
+    val search: AppSearchStatus = AppSearchStatus(),
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
     val isLocaleRefreshRunning: Boolean = false,

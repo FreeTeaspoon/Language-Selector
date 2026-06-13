@@ -212,6 +212,10 @@ class MainScreenVm @Inject constructor(
         it.copy(search = it.search.openRequested())
     }
 
+    fun updateSearchStatus(search: AppSearchStatus) = updateDerived {
+        it.copy(search = search)
+    }
+
     fun finishSearchExpansion() = _uiState.update {
         it.copy(search = it.search.animationFinished())
     }
@@ -229,11 +233,11 @@ class MainScreenVm @Inject constructor(
     }
 
     fun onSearchQueryChange(query: String) = updateDerived {
-        it.copy(search = it.search.copy(query = query))
+        it.copy(search = it.search.copy(searchText = query))
     }
 
     fun updateSearchOffset(offsetY: Dp) = _uiState.update {
-        if (it.search.collapsedOffsetY == offsetY) it
+        if (it.search.offsetY == offsetY) it
         else it.copy(search = it.search.withMeasuredOffset(offsetY))
     }
 
@@ -270,13 +274,13 @@ class MainScreenVm @Inject constructor(
         val results = AppListLogic.searchResults(
             state.listOfApps,
             state.preferences,
-            state.search.query
+            state.search.searchText
         )
         return state.copy(
             visibleHomeApps = visible,
             searchResults = results,
             search = state.search.copy(
-                resultState = searchResultStateFor(state.search.query, results.isNotEmpty())
+                resultStatus = searchResultStateFor(state.search.searchText, results.isNotEmpty())
             )
         )
     }
