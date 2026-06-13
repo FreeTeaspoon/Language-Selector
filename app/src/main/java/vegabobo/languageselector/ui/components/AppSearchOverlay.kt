@@ -153,6 +153,7 @@ fun AppSearchPager(
     status: AppSearchStatus,
     results: List<AppInfo>,
     bottomPadding: Dp,
+    searchBarTopPadding: Dp,
     onStatusChange: (AppSearchStatus) -> Unit,
     onAppClick: (AppInfo) -> Unit
 ) {
@@ -200,7 +201,7 @@ fun AppSearchPager(
                     ExpandedSearchField(
                         status = status,
                         onStatusChange = onStatusChange,
-                        topPadding = 12.dp
+                        topPadding = searchBarTopPadding
                     )
                 }
             }
@@ -214,7 +215,7 @@ fun AppSearchPager(
                     fontWeight = FontWeight.Bold,
                     color = MiuixTheme.colorScheme.primary,
                     modifier = Modifier
-                        .padding(start = 4.dp, end = 16.dp, top = 12.dp, bottom = 6.dp)
+                        .padding(start = 4.dp, end = 16.dp, top = searchBarTopPadding, bottom = 6.dp)
                         .clickable(
                             interactionSource = null,
                             indication = null,

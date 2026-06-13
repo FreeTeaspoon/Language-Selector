@@ -149,6 +149,14 @@ private fun AboutScreenContent(
     ) { innerPadding ->
         Box(modifier = if (barBackdrop != null) Modifier.layerBackdrop(barBackdrop) else Modifier) {
             HyperOsAboutBackground(scrollProgress = scrollProgress) {
+                AboutHero(
+                    appName = state.appName,
+                    versionName = state.versionName,
+                    scrollProgress = scrollProgress,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = innerPadding.calculateTopPadding())
+                )
                 LazyColumn(
                     state = listState,
                     modifier = Modifier
@@ -162,13 +170,7 @@ private fun AboutScreenContent(
                     ),
                     overscrollEffect = null
                 ) {
-                    item {
-                        AboutHero(
-                            appName = state.appName,
-                            versionName = state.versionName,
-                            scrollProgress = scrollProgress
-                        )
-                    }
+                    item { Spacer(Modifier.height(340.dp)) }
                     item { SmallTitle(text = stringResource(R.string.app)) }
                     item {
                         AboutPreferenceCard(
@@ -231,12 +233,13 @@ private fun AboutLauncherIcon(
 private fun AboutHero(
     appName: String,
     versionName: String,
-    scrollProgress: Float
+    scrollProgress: Float,
+    modifier: Modifier = Modifier
 ) {
     val heroAlpha = 1f - scrollProgress
     val heroScale = 1f - scrollProgress * 0.05f
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(top = 92.dp, bottom = 44.dp)
             .graphicsLayer {

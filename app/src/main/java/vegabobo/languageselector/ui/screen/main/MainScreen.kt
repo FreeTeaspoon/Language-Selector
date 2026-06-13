@@ -232,6 +232,7 @@ fun MainScreenContent(
                         status = searchStatus,
                         results = state.searchResults,
                         bottomPadding = bottomInset,
+                        searchBarTopPadding = dynamicSearchPadding,
                         onAppClick = actions.onAppClick,
                         onStatusChange = actions.onSearchStatusChange
                     )

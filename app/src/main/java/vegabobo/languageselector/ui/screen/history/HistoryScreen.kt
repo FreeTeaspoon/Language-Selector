@@ -94,7 +94,19 @@ fun HistoryScreen(
                 )
             }
         },
-        popupHost = { MiuixPopupHost() },
+        popupHost = {
+            Box(Modifier.fillMaxSize()) {
+                ClearHistoryDialog(
+                    show = showClearConfirm,
+                    onDismiss = { showClearConfirm = false },
+                    onConfirm = {
+                        showClearConfirm = false
+                        viewModel.clearHistory()
+                    }
+                )
+                MiuixPopupHost()
+            }
+        },
         contentWindowInsets = WindowInsets.systemBars
             .add(WindowInsets.displayCutout)
             .only(WindowInsetsSides.Horizontal)
@@ -144,14 +156,6 @@ fun HistoryScreen(
         }
     }
 
-    ClearHistoryDialog(
-        show = showClearConfirm,
-        onDismiss = { showClearConfirm = false },
-        onConfirm = {
-            showClearConfirm = false
-            viewModel.clearHistory()
-        }
-    )
 }
 
 @Composable
