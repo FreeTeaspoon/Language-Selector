@@ -64,7 +64,6 @@ class MainScreenVm @Inject constructor(
     var lastSelectedApp: AppInfo? = null
 
     init {
-        loadApps(userRefresh = false)
         viewModelScope.launch(Dispatchers.IO) {
             UserServiceConnector.connection
                 .filterNotNull()
@@ -93,7 +92,7 @@ class MainScreenVm @Inject constructor(
 
     fun refresh() = loadApps(userRefresh = true)
 
-    fun onAppResumed() {
+    fun onAppListPermissionGranted() {
         if (_uiState.value.listOfApps.isNotEmpty() || resumeRefreshJob?.isActive == true) return
         resumeRefreshJob = viewModelScope.launch(Dispatchers.IO) {
             refreshJob?.join()

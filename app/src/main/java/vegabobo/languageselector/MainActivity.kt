@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -43,6 +45,8 @@ object ShizukuArgs {
             .version(BuildConfig.VERSION_CODE)
 }
 
+private const val GET_INSTALLED_APPS_PERMISSION = "com.android.permission.GET_INSTALLED_APPS"
+
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity(), Shizuku.OnRequestPermissionResultListener,
@@ -51,6 +55,7 @@ class MainActivity : ComponentActivity(), Shizuku.OnRequestPermissionResultListe
     override val navigationEventDispatcher = NavigationEventDispatcher()
     private var navigationEventInput: NavigationEventInput? = null
     private var onShizukuPermissionGranted: (() -> Unit)? = null
+    private var onAppListPermissionGranted: (() -> Unit)? = null
     private val activityResumeCount = mutableIntStateOf(0)
 
     init {
@@ -58,7 +63,8 @@ class MainActivity : ComponentActivity(), Shizuku.OnRequestPermissionResultListe
         Shell.setDefaultBuilder(Shell.Builder.create().setTimeout(10))
     }
 
-    val acRequestCode = 1
+    private val acRequestCode = 1
+    private val appListRequestCode = 2
 
     fun bindShizuku() {
         val connection = UserServiceProvider.shizukuConnection
@@ -108,6 +114,47 @@ class MainActivity : ComponentActivity(), Shizuku.OnRequestPermissionResultListe
         }
     }
 
+    fun requestAppListAccess(onPermissionGranted: () -> Unit) {
+        if (!supportsRuntimeAppListPermission() || hasAppListPermission()) {
+            onPermissionGranted()
+            return
+        }
+        onAppListPermissionGranted = onPermissionGranted
+        ActivityCompat.requestPermissions(
+            this,
+            arrayOf(GET_INSTALLED_APPS_PERMISSION),
+            appListRequestCode
+        )
+    }
+
+    private fun supportsRuntimeAppListPermission(): Boolean = runCatching {
+        packageManager.getPermissionInfo(
+            GET_INSTALLED_APPS_PERMISSION,
+            0
+        ).packageName == "com.lbe.security.miui"
+    }.getOrDefault(false)
+
+    private fun hasAppListPermission(): Boolean =
+        ContextCompat.checkSelfPermission(
+            this,
+            GET_INSTALLED_APPS_PERMISSION
+        ) == PackageManager.PERMISSION_GRANTED
+
+    @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == appListRequestCode) {
+            if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
+                onAppListPermissionGranted?.invoke()
+            }
+            onAppListPermissionGranted = null
+        }
+    }
+
     private fun bindGrantedShizuku() {
         if (
             Shizuku.pingBinder() &&
@@ -132,6 +179,7 @@ class MainActivity : ComponentActivity(), Shizuku.OnRequestPermissionResultListe
                 LanguageSelector {
                     Navigation(
                         activityResumeCount = activityResumeCount.intValue,
+                        requestAppListAccess = ::requestAppListAccess,
                         requestShizukuAccess = ::requestShizukuAccess
                     )
                 }
@@ -156,6 +204,7 @@ class MainActivity : ComponentActivity(), Shizuku.OnRequestPermissionResultListe
     override fun onDestroy() {
         Shizuku.removeRequestPermissionResultListener(REQUEST_PERMISSION_RESULT_LISTENER)
         onShizukuPermissionGranted = null
+        onAppListPermissionGranted = null
         navigationEventInput?.let(navigationEventDispatcher::removeInput)
         navigationEventInput = null
         navigationEventDispatcher.dispose()

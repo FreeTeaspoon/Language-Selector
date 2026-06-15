@@ -88,13 +88,16 @@ fun MainScreen(
     navigateToAppScreen: (String) -> Unit,
     navigateToHistory: () -> Unit,
     navigateToAbout: () -> Unit,
+    requestAppListAccess: (() -> Unit) -> Unit,
     requestShizukuAccess: (() -> Unit) -> Unit,
     mainScreenVm: MainScreenVm = hiltViewModel()
 ) {
     val state by mainScreenVm.uiState.collectAsState()
     LaunchedEffect(Unit) { mainScreenVm.reloadLastSelectedItem() }
     LaunchedEffect(activityResumeCount) {
-        if (activityResumeCount > 0) mainScreenVm.onAppResumed()
+        if (activityResumeCount > 0) {
+            requestAppListAccess(mainScreenVm::onAppListPermissionGranted)
+        }
     }
 
     MainScreenContent(
