@@ -60,6 +60,7 @@ class MainScreenVm @Inject constructor(
     private val dao = appInfoDb.appInfoDao()
     private var refreshJob: Job? = null
     private var connectionRefreshJob: Job? = null
+    private var resumeRefreshJob: Job? = null
     var lastSelectedApp: AppInfo? = null
 
     init {
@@ -70,10 +71,15 @@ class MainScreenVm @Inject constructor(
                 .map { it.mode }
                 .distinctUntilChanged()
                 .collect { connectedMode ->
+                    _uiState.update {
+                        it.copy(
+                            operationMode = connectedMode,
+                            isOperationModeResolved = true
+                        )
+                    }
                     val state = _uiState.value
                     if (
                         state.listOfApps.isNotEmpty() &&
-                        state.operationMode != connectedMode &&
                         refreshJob?.isActive != true &&
                         connectionRefreshJob?.isActive != true
                     ) {
@@ -87,10 +93,44 @@ class MainScreenVm @Inject constructor(
 
     fun refresh() = loadApps(userRefresh = true)
 
+    fun onAppResumed() {
+        if (_uiState.value.listOfApps.isNotEmpty() || resumeRefreshJob?.isActive == true) return
+        resumeRefreshJob = viewModelScope.launch(Dispatchers.IO) {
+            refreshJob?.join()
+            if (_uiState.value.listOfApps.isEmpty()) {
+                loadApps(userRefresh = false)
+            }
+        }
+    }
+
+    fun onShizukuPermissionGranted() {
+        if (connectionRefreshJob?.isActive == true) return
+        connectionRefreshJob = viewModelScope.launch(Dispatchers.IO) {
+            refreshJob?.join()
+            val operationMode = resolveOperationMode()
+            _uiState.update {
+                it.copy(
+                    operationMode = operationMode,
+                    isOperationModeResolved = true
+                )
+            }
+            if (_uiState.value.listOfApps.isEmpty()) {
+                loadApps(userRefresh = false)
+            } else {
+                refreshLocaleStates()
+            }
+        }
+    }
+
     private fun loadApps(userRefresh: Boolean) {
         if (refreshJob?.isActive == true) return
         refreshJob = viewModelScope.launch(Dispatchers.IO) {
-            if (userRefresh) _uiState.update { it.copy(isRefreshing = true) }
+            _uiState.update {
+                it.copy(
+                    isLoading = it.listOfApps.isEmpty(),
+                    isRefreshing = userRefresh && it.listOfApps.isNotEmpty()
+                )
+            }
             try {
                 val metadataStart = SystemClock.elapsedRealtime()
                 val loaded = loadAppsUseCase()

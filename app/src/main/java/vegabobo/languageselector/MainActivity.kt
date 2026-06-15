@@ -11,6 +11,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -49,6 +50,8 @@ class MainActivity : ComponentActivity(), Shizuku.OnRequestPermissionResultListe
 
     override val navigationEventDispatcher = NavigationEventDispatcher()
     private var navigationEventInput: NavigationEventInput? = null
+    private var onShizukuPermissionGranted: (() -> Unit)? = null
+    private val activityResumeCount = mutableIntStateOf(0)
 
     init {
         Shell.enableVerboseLogging = BuildConfig.DEBUG
@@ -87,16 +90,20 @@ class MainActivity : ComponentActivity(), Shizuku.OnRequestPermissionResultListe
     override fun onRequestPermissionResult(requestCode: Int, grantResult: Int) {
         if (requestCode == acRequestCode && grantResult == PackageManager.PERMISSION_GRANTED) {
             bindShizuku()
+            onShizukuPermissionGranted?.invoke()
         }
+        if (requestCode == acRequestCode) onShizukuPermissionGranted = null
     }
 
-    fun requestShizukuAccess() {
+    fun requestShizukuAccess(onPermissionGranted: () -> Unit) {
         if (!Shizuku.pingBinder()) return
         if (Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) {
             bindShizuku()
+            onPermissionGranted()
             return
         }
         if (!Shizuku.shouldShowRequestPermissionRationale()) {
+            onShizukuPermissionGranted = onPermissionGranted
             Shizuku.requestPermission(acRequestCode)
         }
     }
@@ -123,7 +130,10 @@ class MainActivity : ComponentActivity(), Shizuku.OnRequestPermissionResultListe
         setContent {
             CompositionLocalProvider(LocalNavigationEventDispatcherOwner provides this) {
                 LanguageSelector {
-                    Navigation(requestShizukuAccess = ::requestShizukuAccess)
+                    Navigation(
+                        activityResumeCount = activityResumeCount.intValue,
+                        requestShizukuAccess = ::requestShizukuAccess
+                    )
                 }
             }
         }
@@ -133,6 +143,7 @@ class MainActivity : ComponentActivity(), Shizuku.OnRequestPermissionResultListe
 
     override fun onResume() {
         super.onResume()
+        activityResumeCount.intValue++
         if (
             Shizuku.pingBinder() &&
             Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED &&
@@ -144,6 +155,7 @@ class MainActivity : ComponentActivity(), Shizuku.OnRequestPermissionResultListe
 
     override fun onDestroy() {
         Shizuku.removeRequestPermissionResultListener(REQUEST_PERMISSION_RESULT_LISTENER)
+        onShizukuPermissionGranted = null
         navigationEventInput?.let(navigationEventDispatcher::removeInput)
         navigationEventInput = null
         navigationEventDispatcher.dispose()

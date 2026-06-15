@@ -62,7 +62,8 @@ private class Navigator(
 
 @Composable
 fun Navigation(
-    requestShizukuAccess: () -> Unit
+    activityResumeCount: Int,
+    requestShizukuAccess: (() -> Unit) -> Unit
 ) {
     val backStack = rememberNavBackStack(AppRoute.Home)
     val navigator = remember(backStack) { Navigator(backStack) }
@@ -82,6 +83,7 @@ fun Navigation(
         entryProvider = entryProvider {
             entry<AppRoute.Home> {
                 MainScreen(
+                    activityResumeCount = activityResumeCount,
                     navigateToAppScreen = { navigator.push(AppRoute.AppInfo(it)) },
                     navigateToHistory = { navigator.push(AppRoute.History) },
                     navigateToAbout = { navigator.push(AppRoute.About) },

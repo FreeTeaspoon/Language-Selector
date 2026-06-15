@@ -84,14 +84,18 @@ data class MainScreenActions(
 
 @Composable
 fun MainScreen(
+    activityResumeCount: Int,
     navigateToAppScreen: (String) -> Unit,
     navigateToHistory: () -> Unit,
     navigateToAbout: () -> Unit,
-    requestShizukuAccess: () -> Unit,
+    requestShizukuAccess: (() -> Unit) -> Unit,
     mainScreenVm: MainScreenVm = hiltViewModel()
 ) {
     val state by mainScreenVm.uiState.collectAsState()
     LaunchedEffect(Unit) { mainScreenVm.reloadLastSelectedItem() }
+    LaunchedEffect(activityResumeCount) {
+        if (activityResumeCount > 0) mainScreenVm.onAppResumed()
+    }
 
     MainScreenContent(
         state = state,
@@ -108,7 +112,9 @@ fun MainScreen(
             onSystemAppsToggle = mainScreenVm::toggleSystemAppsVisibility,
             onModifiedOnlyToggle = mainScreenVm::toggleModifiedOnly,
             onSearchStatusChange = mainScreenVm::updateSearchStatus,
-            onRequestShizuku = requestShizukuAccess
+            onRequestShizuku = {
+                requestShizukuAccess(mainScreenVm::onShizukuPermissionGranted)
+            }
         )
     )
 }
