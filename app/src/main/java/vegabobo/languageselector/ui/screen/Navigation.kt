@@ -2,11 +2,19 @@ package vegabobo.languageselector.ui.screen
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import kotlinx.serialization.Serializable
 import top.yukonga.miuix.kmp.nav.core.NavBackStack
+import top.yukonga.miuix.kmp.nav.core.NavCornerClipMode
 import top.yukonga.miuix.kmp.nav.core.NavDisplay
+import top.yukonga.miuix.kmp.nav.core.NavDisplayEffects
 import top.yukonga.miuix.kmp.nav.core.NavKey
 import top.yukonga.miuix.kmp.nav.core.rememberNavBackStack
+import top.yukonga.miuix.kmp.nav.core.rememberNavSystemCornerRadius
+import top.yukonga.miuix.kmp.nav.transition.NavSwipeDirection
+import top.yukonga.miuix.kmp.nav.transition.NavTransitions
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import vegabobo.languageselector.ui.screen.about.AboutScreen
 import vegabobo.languageselector.ui.screen.appinfo.AppInfoScreen
 import vegabobo.languageselector.ui.screen.history.HistoryScreen
@@ -51,11 +59,25 @@ fun Navigation(
 ) {
     val backStack = rememberNavBackStack<AppRoute>(AppRoute.Home)
     val navigator = remember(backStack) { Navigator(backStack) }
+    val navCornerRadius = rememberNavSystemCornerRadius()
+    val swipeBackDirection = when (LocalLayoutDirection.current) {
+        LayoutDirection.Rtl -> NavSwipeDirection.RightToLeft
+        else -> NavSwipeDirection.LeftToRight
+    }
     NavDisplay(
         backStack = navigator.backStack,
         onBack = { navigator.pop() },
+        transition = NavTransitions.MiuixDefault,
+        effects = NavDisplayEffects(
+            enableCornerClip = true,
+            cornerClipRadius = navCornerRadius,
+            cornerClipMode = NavCornerClipMode.Leading,
+            dimAmount = 0.5f,
+            blockInputDuringTransition = false,
+            backdropColor = MiuixTheme.colorScheme.surface,
+        ),
     ) {
-        entry<AppRoute.Home> {
+        entry<AppRoute.Home>(swipeDismiss = swipeBackDirection) {
             MainScreen(
                 activityResumeCount = activityResumeCount,
                 navigateToAppScreen = { navigator.push(AppRoute.AppInfo(it)) },
@@ -65,16 +87,16 @@ fun Navigation(
                 requestShizukuAccess = requestShizukuAccess,
             )
         }
-        entry<AppRoute.AppInfo> { key ->
+        entry<AppRoute.AppInfo>(swipeDismiss = swipeBackDirection) { key ->
             AppInfoScreen(
                 appId = key.packageName,
                 navigateBack = { navigator.pop() },
             )
         }
-        entry<AppRoute.About> {
+        entry<AppRoute.About>(swipeDismiss = swipeBackDirection) {
             AboutScreen(navigateBack = { navigator.pop() })
         }
-        entry<AppRoute.History> {
+        entry<AppRoute.History>(swipeDismiss = swipeBackDirection) {
             HistoryScreen(
                 navigateBack = { navigator.pop() },
                 navigateToApp = { navigator.push(AppRoute.AppInfo(it)) },

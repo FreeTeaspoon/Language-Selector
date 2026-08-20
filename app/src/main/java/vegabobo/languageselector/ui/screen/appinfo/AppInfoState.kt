@@ -19,6 +19,18 @@ data class SingleLocale(
     }
 }
 
+fun LocaleRegion.pinLocale(): SingleLocale? {
+    if (locales.isEmpty()) return null
+    val languageOnly = locales.firstOrNull { locale ->
+        val parsed = locale.toLocale()
+        parsed.country.isEmpty() && parsed.script.isEmpty() && parsed.variant.isEmpty()
+    }
+    return languageOnly ?: locales.first()
+}
+
+fun List<SingleLocale>.containsLocale(locale: SingleLocale): Boolean =
+    any { it.languageTag == locale.languageTag }
+
 data class AppInfoState(
     val applicationInfo: ApplicationInfo? = null,
     val appName: String = "",

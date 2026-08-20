@@ -29,6 +29,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,15 +40,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
-import top.yukonga.miuix.kmp.basic.DropdownImpl
-import top.yukonga.miuix.kmp.basic.HorizontalDivider
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
-import top.yukonga.miuix.kmp.basic.ListPopupColumn
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
-import top.yukonga.miuix.kmp.basic.PopupPositionProvider
 import top.yukonga.miuix.kmp.basic.PullToRefresh
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Text
@@ -58,7 +56,7 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.MoreCircle
 import top.yukonga.miuix.kmp.icon.extended.Notes
 import top.yukonga.miuix.kmp.icon.extended.Sort
-import top.yukonga.miuix.kmp.overlay.OverlayListPopup
+import top.yukonga.miuix.kmp.menu.OverlayIconDropdownMenu
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.MiuixPopupUtils.Companion.MiuixPopupHost
 import top.yukonga.miuix.kmp.utils.overScrollVertical
@@ -66,9 +64,7 @@ import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import vegabobo.languageselector.R
 import vegabobo.languageselector.domain.apps.AppInfo
 import vegabobo.languageselector.domain.apps.AppSortField
-import vegabobo.languageselector.ui.components.AppDropdownItem
 import vegabobo.languageselector.ui.components.AppListItem
-import vegabobo.languageselector.ui.components.AppPopupDefaults
 import vegabobo.languageselector.ui.components.AppSearchPager
 import vegabobo.languageselector.ui.components.BlurredTopBar
 import vegabobo.languageselector.ui.components.CollapsedAppSearch
@@ -138,12 +134,22 @@ fun MainScreenContent(
     val dynamicSearchPadding by remember {
         derivedStateOf { 12.dp * (1f - scrollBehavior.state.collapsedFraction) }
     }
-    val listState = rememberLazyListState()
     val pullState = rememberPullToRefreshState()
     val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
         WindowInsets.captionBar.asPaddingValues().calculateBottomPadding()
-    var showSortPopup by remember { mutableStateOf(false) }
-    var showMorePopup by remember { mutableStateOf(false) }
+    val sortEntries = rememberSortEntries(
+        selected = state.preferences.sortField,
+        descending = state.preferences.descending,
+        onSelect = actions.onSortFieldChange,
+        onReverse = actions.onSortDirectionToggle,
+    )
+    val moreEntries = rememberMoreEntries(
+        showSystemApps = state.preferences.showSystemApps,
+        modifiedOnly = state.preferences.modifiedOnly,
+        onSystemAppsToggle = actions.onSystemAppsToggle,
+        onModifiedOnlyToggle = actions.onModifiedOnlyToggle,
+        onAboutClick = actions.onAboutClick,
+    )
     val backdrop = rememberAppBlurBackdrop()
     val barColor = if (backdrop != null) Color.Transparent else MiuixTheme.colorScheme.surface
     val searchStatus = state.search.copy(label = stringResource(R.string.search))
@@ -166,69 +172,23 @@ fun MainScreenContent(
                                 }
                             },
                             actions = {
-                                Box {
-                                    OverlayListPopup(
-                                        show = showSortPopup,
-                                        popupPositionProvider = AppPopupDefaults.MenuPositionProvider,
-                                        alignment = PopupPositionProvider.Align.TopEnd,
-                                        onDismissRequest = { showSortPopup = false }
-                                    ) {
-                                        SortPopupContent(
-                                            selected = state.preferences.sortField,
-                                            descending = state.preferences.descending,
-                                            onSelect = {
-                                                actions.onSortFieldChange(it)
-                                                showSortPopup = false
-                                            },
-                                            onReverse = {
-                                                actions.onSortDirectionToggle()
-                                                showSortPopup = false
-                                            }
-                                        )
-                                    }
-                                    IconButton(
-                                        onClick = { showSortPopup = true },
-                                        holdDownState = showSortPopup
-                                    ) {
-                                        Icon(
-                                            imageVector = MiuixIcons.Sort,
-                                            contentDescription = stringResource(R.string.sort)
-                                        )
-                                    }
+                                OverlayIconDropdownMenu(
+                                    entries = sortEntries,
+                                    collapseOnSelection = true,
+                                ) {
+                                    Icon(
+                                        imageVector = MiuixIcons.Sort,
+                                        contentDescription = stringResource(R.string.sort)
+                                    )
                                 }
-                                Box {
-                                    OverlayListPopup(
-                                        show = showMorePopup,
-                                        popupPositionProvider = AppPopupDefaults.MenuPositionProvider,
-                                        alignment = PopupPositionProvider.Align.TopEnd,
-                                        onDismissRequest = { showMorePopup = false }
-                                    ) {
-                                        MorePopupContent(
-                                            showSystemApps = state.preferences.showSystemApps,
-                                            modifiedOnly = state.preferences.modifiedOnly,
-                                            onSystemAppsToggle = {
-                                                actions.onSystemAppsToggle()
-                                                showMorePopup = false
-                                            },
-                                            onModifiedOnlyToggle = {
-                                                actions.onModifiedOnlyToggle()
-                                                showMorePopup = false
-                                            },
-                                            onAboutClick = {
-                                                showMorePopup = false
-                                                actions.onAboutClick()
-                                            }
-                                        )
-                                    }
-                                    IconButton(
-                                        onClick = { showMorePopup = true },
-                                        holdDownState = showMorePopup
-                                    ) {
-                                        Icon(
-                                            imageVector = MiuixIcons.MoreCircle,
-                                            contentDescription = stringResource(R.string.more_options)
-                                        )
-                                    }
+                                OverlayIconDropdownMenu(
+                                    entries = moreEntries,
+                                    collapseOnSelection = true,
+                                ) {
+                                    Icon(
+                                        imageVector = MiuixIcons.MoreCircle,
+                                        contentDescription = stringResource(R.string.more_options)
+                                    )
                                 }
                             },
                             bottomContent = {
@@ -252,6 +212,9 @@ fun MainScreenContent(
                         onAppClick = actions.onAppClick,
                         onStatusChange = actions.onSearchStatusChange
                     )
+                    if (state.isOperationModeResolved && state.operationMode == OperationMode.NONE) {
+                        ShizukuRequiredWarning(onClickContinue = actions.onRequestShizuku)
+                    }
                     MiuixPopupHost()
                 }
             },
@@ -267,6 +230,16 @@ fun MainScreenContent(
                 bottom = bottomInset
             )
             searchStatus.SearchBox {
+                val listState = rememberLazyListState()
+                val sortOrder = state.preferences.sortField to state.preferences.descending
+                var appliedSortOrder by remember { mutableStateOf(sortOrder) }
+                LaunchedEffect(sortOrder) {
+                    if (appliedSortOrder == sortOrder) return@LaunchedEffect
+                    appliedSortOrder = sortOrder
+                    listState.scrollToItem(0)
+                    scrollBehavior.state.heightOffset = 0f
+                    scrollBehavior.state.contentOffset = 0f
+                }
                 if (state.isLoading && state.listOfApps.isEmpty()) {
                     Box(
                         modifier = Modifier
@@ -313,7 +286,11 @@ fun MainScreenContent(
                                 contentPadding = listPadding,
                                 overscrollEffect = null
                             ) {
-                                if (state.preferences.modifiedOnly && state.isLocaleRefreshRunning) {
+                                if (
+                                    state.preferences.modifiedOnly &&
+                                    state.isLocaleRefreshRunning &&
+                                    !state.isRefreshing
+                                ) {
                                     item(key = "modified-progress") {
                                         Box(
                                             modifier = Modifier
@@ -321,7 +298,7 @@ fun MainScreenContent(
                                                 .padding(bottom = 8.dp),
                                             contentAlignment = Alignment.Center
                                         ) {
-                                            CircularProgressIndicator()
+                                            InfiniteProgressIndicator(size = 20.dp)
                                         }
                                     }
                                 }
@@ -338,82 +315,102 @@ fun MainScreenContent(
             }
         }
 
-        if (state.isOperationModeResolved && state.operationMode == OperationMode.NONE) {
-            ShizukuRequiredWarning(onClickContinue = actions.onRequestShizuku)
-        }
     }
 }
 
 @Composable
-private fun SortPopupContent(
+private fun rememberSortEntries(
     selected: AppSortField,
     descending: Boolean,
     onSelect: (AppSortField) -> Unit,
-    onReverse: () -> Unit
-) {
-    val options = listOf(
-        AppSortField.Name to stringResource(R.string.sort_name),
-        AppSortField.PackageName to stringResource(R.string.sort_package),
-        AppSortField.InstallTime to stringResource(R.string.sort_install_time),
-        AppSortField.UpdateTime to stringResource(R.string.sort_update_time)
-    )
-    ListPopupColumn {
-        options.forEachIndexed { index, (field, label) ->
-            DropdownImpl(
-                text = label,
-                optionSize = options.size + 1,
-                isSelected = selected == field,
-                index = index,
-                onSelectedIndexChange = { onSelect(field) }
-            )
-        }
-        HorizontalDivider(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
-            thickness = 1.5.dp
-        )
-        DropdownImpl(
-            text = stringResource(R.string.sort_reverse),
-            optionSize = options.size + 1,
-            isSelected = descending,
-            index = options.size,
-            onSelectedIndexChange = { onReverse() }
+    onReverse: () -> Unit,
+): List<DropdownEntry> {
+    val name = stringResource(R.string.sort_name)
+    val packageName = stringResource(R.string.sort_package)
+    val installTime = stringResource(R.string.sort_install_time)
+    val updateTime = stringResource(R.string.sort_update_time)
+    val reverse = stringResource(R.string.sort_reverse)
+    val currentOnSelect = rememberUpdatedState(onSelect)
+    val currentOnReverse = rememberUpdatedState(onReverse)
+    return remember(selected, descending, name, packageName, installTime, updateTime, reverse) {
+        listOf(
+            DropdownEntry(
+                items = listOf(
+                    DropdownItem(
+                        text = name,
+                        selected = selected == AppSortField.Name,
+                        onClick = { currentOnSelect.value(AppSortField.Name) },
+                    ),
+                    DropdownItem(
+                        text = packageName,
+                        selected = selected == AppSortField.PackageName,
+                        onClick = { currentOnSelect.value(AppSortField.PackageName) },
+                    ),
+                    DropdownItem(
+                        text = installTime,
+                        selected = selected == AppSortField.InstallTime,
+                        onClick = { currentOnSelect.value(AppSortField.InstallTime) },
+                    ),
+                    DropdownItem(
+                        text = updateTime,
+                        selected = selected == AppSortField.UpdateTime,
+                        onClick = { currentOnSelect.value(AppSortField.UpdateTime) },
+                    ),
+                ),
+            ),
+            DropdownEntry(
+                items = listOf(
+                    DropdownItem(
+                        text = reverse,
+                        selected = descending,
+                        onClick = { currentOnReverse.value() },
+                    ),
+                ),
+            ),
         )
     }
 }
 
 @Composable
-private fun MorePopupContent(
+private fun rememberMoreEntries(
     showSystemApps: Boolean,
     modifiedOnly: Boolean,
     onSystemAppsToggle: () -> Unit,
     onModifiedOnlyToggle: () -> Unit,
-    onAboutClick: () -> Unit
-) {
-    val labels = listOf(
-        stringResource(R.string.show_system_apps),
-        stringResource(R.string.modified_only),
-        stringResource(R.string.about)
-    )
-    ListPopupColumn {
-        DropdownImpl(
-            text = labels[0],
-            optionSize = labels.size,
-            isSelected = showSystemApps,
-            index = 0,
-            onSelectedIndexChange = { onSystemAppsToggle() }
-        )
-        DropdownImpl(
-            text = labels[1],
-            optionSize = labels.size,
-            isSelected = modifiedOnly,
-            index = 1,
-            onSelectedIndexChange = { onModifiedOnlyToggle() }
-        )
-        AppDropdownItem(
-            text = labels[2],
-            optionSize = labels.size,
-            index = 2,
-            onClick = onAboutClick
+    onAboutClick: () -> Unit,
+): List<DropdownEntry> {
+    val showSystemAppsLabel = stringResource(R.string.show_system_apps)
+    val modifiedOnlyLabel = stringResource(R.string.modified_only)
+    val aboutLabel = stringResource(R.string.about)
+    val currentOnSystemAppsToggle = rememberUpdatedState(onSystemAppsToggle)
+    val currentOnModifiedOnlyToggle = rememberUpdatedState(onModifiedOnlyToggle)
+    val currentOnAboutClick = rememberUpdatedState(onAboutClick)
+    return remember(
+        showSystemApps,
+        modifiedOnly,
+        showSystemAppsLabel,
+        modifiedOnlyLabel,
+        aboutLabel,
+    ) {
+        listOf(
+            DropdownEntry(
+                items = listOf(
+                    DropdownItem(
+                        text = showSystemAppsLabel,
+                        selected = showSystemApps,
+                        onClick = { currentOnSystemAppsToggle.value() },
+                    ),
+                    DropdownItem(
+                        text = modifiedOnlyLabel,
+                        selected = modifiedOnly,
+                        onClick = { currentOnModifiedOnlyToggle.value() },
+                    ),
+                    DropdownItem(
+                        text = aboutLabel,
+                        onClick = { currentOnAboutClick.value() },
+                    ),
+                ),
+            ),
         )
     }
 }

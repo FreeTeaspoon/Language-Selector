@@ -13,7 +13,7 @@ import top.yukonga.miuix.kmp.utils.PressFeedbackType
 @Composable
 fun LocaleItemList(
     itemText: String,
-    onLongClick: () -> Unit = {},
+    onLongClick: (() -> Unit)? = null,
     onClick: () -> Unit
 ) {
     Card(

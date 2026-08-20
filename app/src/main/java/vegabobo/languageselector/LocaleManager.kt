@@ -17,15 +17,15 @@ class LocaleManager {
             val languageTag = locale.toLanguageTag()
             val language = locale.getDisplayLanguage(locale).replaceFirstChar { it.uppercaseChar() }
 
+            val singleLocale = SingleLocale(languageName, languageTag)
             val existingLocale = localeListMap[language]
             if (existingLocale != null) {
-                val singleLocale = SingleLocale(languageName, languageTag)
                 existingLocale.locales.add(singleLocale)
                 continue
             }
 
             localeListMap[language] =
-                LocaleRegion(language, arrayListOf())
+                LocaleRegion(language, arrayListOf(singleLocale))
         }
         localeList.addAll(localeListMap.values)
         localeList.sortBy { it.language }

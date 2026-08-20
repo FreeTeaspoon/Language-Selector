@@ -1,5 +1,6 @@
 package vegabobo.languageselector.ui.screen.history
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -17,7 +18,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.systemBars
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -77,7 +77,11 @@ fun HistoryScreen(
 
     Scaffold(
         topBar = {
-            BlurredTopBar(backdrop = backdrop) {
+            BlurredTopBar(
+                backdrop = backdrop,
+                progressive = true,
+                scrollBehavior = scrollBehavior,
+            ) {
                 TopAppBar(
                     title = stringResource(R.string.history),
                     color = barColor,
@@ -196,14 +200,14 @@ private fun ClearHistoryDialog(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 20.dp)
+                .padding(top = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             TextButton(
                 modifier = Modifier.weight(1f),
                 text = stringResource(R.string.cancel),
                 onClick = onDismiss
             )
-            Spacer(modifier = Modifier.width(8.dp))
             TextButton(
                 modifier = Modifier.weight(1f),
                 text = stringResource(R.string.clear),

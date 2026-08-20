@@ -60,10 +60,6 @@ android {
     }
 }
 
-base {
-    archivesName.set("LanguageSelector_${appVersionName}_${appVersionCode}")
-}
-
 kotlin {
     compilerOptions {
         jvmTarget.set(JvmTarget.JVM_21)

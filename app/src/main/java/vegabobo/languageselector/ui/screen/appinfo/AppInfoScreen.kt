@@ -1,8 +1,8 @@
 package vegabobo.languageselector.ui.screen.appinfo
 
-import android.widget.Toast
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -31,13 +31,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -46,28 +46,31 @@ import androidx.navigationevent.NavigationEventInfo
 import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.rememberNavigationEventState
 import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.ListPopupColumn
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
-import top.yukonga.miuix.kmp.basic.PopupPositionProvider
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.SnackbarHost
+import top.yukonga.miuix.kmp.basic.SnackbarHostState
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.MoreCircle
-import top.yukonga.miuix.kmp.overlay.OverlayListPopup
+import top.yukonga.miuix.kmp.menu.OverlayIconDropdownMenu
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.MiuixPopupUtils.Companion.MiuixPopupHost
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import vegabobo.languageselector.R
 import vegabobo.languageselector.domain.apps.ModifiedState
-import vegabobo.languageselector.ui.components.AppDropdownItem
 import vegabobo.languageselector.ui.components.AppIconImage
-import vegabobo.languageselector.ui.components.AppPopupDefaults
 import vegabobo.languageselector.ui.components.BackButton
 import vegabobo.languageselector.ui.components.BlurredTopBar
 import vegabobo.languageselector.ui.components.LocaleItemList
@@ -81,31 +84,37 @@ fun AppInfoScreen(
     appInfoVm: AppInfoVm = hiltViewModel(),
 ) {
     val uiState by appInfoVm.uiState.collectAsState()
-    val context = LocalContext.current
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
     val scrollBehavior = MiuixScrollBehavior()
     val selectedLanguageBackState = rememberNavigationEventState(NavigationEventInfo.None)
     val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
         WindowInsets.captionBar.asPaddingValues().calculateBottomPadding()
-    var showMorePopup by remember { mutableStateOf(false) }
     val backdrop = rememberAppBlurBackdrop()
     val barColor = if (backdrop != null) Color.Transparent else MiuixTheme.colorScheme.surface
+    val moreEntries = rememberAppActionsEntries(
+        onOpen = appInfoVm::onClickOpen,
+        onForceClose = appInfoVm::onClickForceClose,
+        onSettings = appInfoVm::onClickSettings,
+    )
+    var localePendingUnpin by remember { mutableStateOf<SingleLocale?>(null) }
+    val pinnedMessage = stringResource(R.string.pinned_ok)
+    val unpinnedMessage = stringResource(R.string.unpinned)
 
-    fun pinToast(locale: String) {
-        Toast.makeText(
-            context,
-            context.getString(R.string.pinned_ok).format(locale),
-            Toast.LENGTH_SHORT
-        ).show()
+    fun showMessage(message: String) {
+        coroutineScope.launch {
+            snackbarHostState.showSnackbar(message)
+        }
     }
 
-    fun unpinToast(locale: String) {
-        Toast.makeText(
-            context,
-            context.getString(R.string.unpinned).format(locale),
-            Toast.LENGTH_SHORT
-        ).show()
+    fun onLocaleLongPress(locale: SingleLocale) {
+        if (uiState.listOfPinnedLanguages.containsLocale(locale)) {
+            localePendingUnpin = locale
+        } else {
+            showMessage(pinnedMessage.format(locale.name))
+            appInfoVm.onPinLang(locale)
+        }
     }
 
     LaunchedEffect(appId) {
@@ -115,55 +124,43 @@ fun AppInfoScreen(
 
     Scaffold(
         topBar = {
-            BlurredTopBar(backdrop = backdrop) {
+            BlurredTopBar(
+                backdrop = backdrop,
+                progressive = true,
+                scrollBehavior = scrollBehavior,
+            ) {
                 TopAppBar(
                     title = stringResource(R.string.app_language),
                     color = barColor,
                     navigationIcon = { BackButton(navigateBack) },
                     scrollBehavior = scrollBehavior,
                     actions = {
-                        Box {
-                            OverlayListPopup(
-                                show = showMorePopup,
-                                popupPositionProvider = AppPopupDefaults.MenuPositionProvider,
-                                alignment = PopupPositionProvider.Align.TopEnd,
-                                onDismissRequest = { showMorePopup = false }
-                            ) {
-                                val labels = listOf(
-                                    stringResource(R.string.open),
-                                    stringResource(R.string.close),
-                                    stringResource(R.string.settings)
-                                )
-                                ListPopupColumn {
-                                    labels.forEachIndexed { index, label ->
-                                        AppDropdownItem(
-                                            text = label,
-                                            optionSize = labels.size,
-                                            index = index,
-                                            onClick = {
-                                                showMorePopup = false
-                                                when (index) {
-                                                    0 -> appInfoVm.onClickOpen()
-                                                    1 -> appInfoVm.onClickForceClose()
-                                                    else -> appInfoVm.onClickSettings()
-                                                }
-                                            }
-                                        )
-                                    }
-                                }
-                            }
-                            IconButton(
-                                onClick = { showMorePopup = true },
-                                holdDownState = showMorePopup
-                            ) {
-                                Icon(
-                                    imageVector = MiuixIcons.MoreCircle,
-                                    contentDescription = stringResource(R.string.more_options)
-                                )
-                            }
+                        OverlayIconDropdownMenu(entry = moreEntries) {
+                            Icon(
+                                imageVector = MiuixIcons.MoreCircle,
+                                contentDescription = stringResource(R.string.more_options)
+                            )
                         }
                     }
                 )
+            }
+        },
+        snackbarHost = { SnackbarHost(state = snackbarHostState) },
+        popupHost = {
+            Box(Modifier.fillMaxSize()) {
+                UnpinLanguageDialog(
+                    locale = localePendingUnpin,
+                    onDismiss = { localePendingUnpin = null },
+                    onConfirm = {
+                        val locale = localePendingUnpin
+                        localePendingUnpin = null
+                        if (locale != null) {
+                            showMessage(unpinnedMessage.format(locale.name))
+                            appInfoVm.onRemovePin(locale)
+                        }
+                    }
+                )
+                MiuixPopupHost()
             }
         },
         contentWindowInsets = WindowInsets.systemBars
@@ -199,10 +196,7 @@ fun AppInfoScreen(
                             appInfoVm.onBackWhenSelectedLang()
                             coroutineScope.launch { listState.scrollToItem(0) }
                         },
-                        onLongClick = {
-                            pinToast(locale.name)
-                            appInfoVm.onPinLang(locale)
-                        }
+                        onLongClick = { onLocaleLongPress(locale) }
                     )
                 }
             } else {
@@ -213,10 +207,7 @@ fun AppInfoScreen(
                         LocaleItemList(
                             itemText = locale.name,
                             onClick = { appInfoVm.onClickLocale(locale) },
-                            onLongClick = {
-                                unpinToast(locale.name)
-                                appInfoVm.onRemovePin(locale)
-                            }
+                            onLongClick = { localePendingUnpin = locale }
                         )
                     }
                 }
@@ -232,20 +223,23 @@ fun AppInfoScreen(
                     LocaleItemList(
                         itemText = locale.name,
                         onClick = { appInfoVm.onClickLocale(locale) },
-                        onLongClick = {
-                            pinToast(locale.name)
-                            appInfoVm.onPinLang(locale)
-                        }
+                        onLongClick = { onLocaleLongPress(locale) }
                     )
                 }
 
                 item { SmallTitle(text = stringResource(R.string.all_languages)) }
                 items(uiState.listOfAllLanguages.size) { index ->
-                    val locale = uiState.listOfAllLanguages[index]
-                    LocaleItemList(locale.language) {
-                        appInfoVm.onClickSingleLanguage(index)
-                        coroutineScope.launch { listState.scrollToItem(0) }
-                    }
+                    val language = uiState.listOfAllLanguages[index]
+                    LocaleItemList(
+                        itemText = language.language,
+                        onClick = {
+                            appInfoVm.onClickSingleLanguage(index)
+                            coroutineScope.launch { listState.scrollToItem(0) }
+                        },
+                        onLongClick = {
+                            language.pinLocale()?.let(::onLocaleLongPress)
+                        }
+                    )
                 }
             }
             item { Spacer(Modifier.size(1.dp)) }
@@ -255,9 +249,53 @@ fun AppInfoScreen(
 
     NavigationBackHandler(
         state = selectedLanguageBackState,
-        isBackEnabled = uiState.selectedLanguage != -1,
+        isBackEnabled = uiState.selectedLanguage != -1 && localePendingUnpin == null,
         onBackCompleted = appInfoVm::onBackWhenSelectedLang
     )
+}
+
+@Composable
+private fun UnpinLanguageDialog(
+    locale: SingleLocale?,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    val show = locale != null
+    val backState = rememberNavigationEventState(NavigationEventInfo.None)
+    NavigationBackHandler(
+        state = backState,
+        isBackEnabled = show,
+        onBackCompleted = onDismiss
+    )
+
+    OverlayDialog(
+        show = show,
+        onDismissRequest = onDismiss,
+        title = locale?.let { stringResource(R.string.unpin_title, it.name) }
+    ) {
+        Text(
+            text = stringResource(R.string.unpin_message),
+            color = MiuixTheme.colorScheme.onSurface
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            TextButton(
+                modifier = Modifier.weight(1f),
+                text = stringResource(R.string.cancel),
+                onClick = onDismiss
+            )
+            TextButton(
+                modifier = Modifier.weight(1f),
+                text = stringResource(R.string.unpin),
+                colors = ButtonDefaults.textButtonColorsPrimary(),
+                onClick = onConfirm
+            )
+        }
+    }
 }
 
 @Composable
@@ -318,5 +356,28 @@ private fun AppHeader(state: AppInfoState) {
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun rememberAppActionsEntries(
+    onOpen: () -> Unit,
+    onForceClose: () -> Unit,
+    onSettings: () -> Unit,
+): DropdownEntry {
+    val launch = stringResource(R.string.launch)
+    val forceStop = stringResource(R.string.force_stop)
+    val settings = stringResource(R.string.settings)
+    val currentOnOpen = rememberUpdatedState(onOpen)
+    val currentOnForceClose = rememberUpdatedState(onForceClose)
+    val currentOnSettings = rememberUpdatedState(onSettings)
+    return remember(launch, forceStop, settings) {
+        DropdownEntry(
+            items = listOf(
+                DropdownItem(text = launch, onClick = { currentOnOpen.value() }),
+                DropdownItem(text = forceStop, onClick = { currentOnForceClose.value() }),
+                DropdownItem(text = settings, onClick = { currentOnSettings.value() }),
+            ),
+        )
     }
 }
