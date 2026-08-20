@@ -14,5 +14,6 @@ class AboutScreenTest {
             dependencies.map { it.name }
         )
         assertTrue(dependencies.all { it.summary.isNotBlank() })
+        assertTrue(dependencies.all { it.url?.startsWith("https://") == true })
     }
 }

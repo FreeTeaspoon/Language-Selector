@@ -11,6 +11,8 @@ import com.topjohnwu.superuser.Shell
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -131,22 +133,34 @@ class MainScreenVm @Inject constructor(
                 )
             }
             try {
+                val firstLoad = _uiState.value.listOfApps.isEmpty()
                 val metadataStart = SystemClock.elapsedRealtime()
-                val loaded = loadAppsUseCase()
-                val previousStates = _uiState.value.listOfApps.associate { it.pkg to it.modifiedState }
-                val apps = loaded.map { app ->
-                    app.copy(modifiedState = previousStates[app.pkg] ?: ModifiedState.Unknown)
+                coroutineScope {
+                    val servicePrefetch = async {
+                        val mode = resolveOperationMode()
+                        if (mode != OperationMode.NONE) {
+                            localeRepository.awaitService()
+                        }
+                    }
+                    val loaded = loadAppsUseCase()
+                    val previousStates = _uiState.value.listOfApps.associate { it.pkg to it.modifiedState }
+                    val apps = loaded.map { app ->
+                        app.copy(modifiedState = previousStates[app.pkg] ?: ModifiedState.Unknown)
+                    }
+                    logPerf("metadata load: ${apps.size} apps in ${SystemClock.elapsedRealtime() - metadataStart}ms")
+                    servicePrefetch.await()
+                    if (!firstLoad) {
+                        updateDerived { it.copy(listOfApps = apps) }
+                    }
+                    refreshLocaleStates(apps)
                 }
-                logPerf("metadata load: ${apps.size} apps in ${SystemClock.elapsedRealtime() - metadataStart}ms")
-                updateDerived { it.copy(listOfApps = apps, isLoading = false) }
-                refreshLocaleStates()
             } finally {
                 _uiState.update { it.copy(isRefreshing = false, isLoading = false) }
             }
         }
     }
 
-    private suspend fun refreshLocaleStates() {
+    private suspend fun refreshLocaleStates(apps: List<AppInfo> = _uiState.value.listOfApps) {
         val modeStart = SystemClock.elapsedRealtime()
         val operationMode = resolveOperationMode()
         logPerf("service mode resolved: $operationMode in ${SystemClock.elapsedRealtime() - modeStart}ms")
@@ -154,13 +168,12 @@ class MainScreenVm @Inject constructor(
             it.copy(operationMode = operationMode, isOperationModeResolved = true)
         }
 
-        val currentApps = _uiState.value.listOfApps
-        if (currentApps.isEmpty()) return
+        if (apps.isEmpty()) return
         if (operationMode == OperationMode.NONE) {
-            updateDerived { state ->
-                state.copy(
-                    listOfApps = state.listOfApps.map {
-                        it.copy(modifiedState = ModifiedState.Unavailable)
+            updateDerived {
+                it.copy(
+                    listOfApps = apps.map { app ->
+                        app.copy(modifiedState = ModifiedState.Unavailable)
                     },
                     isLocaleRefreshRunning = false
                 )
@@ -168,17 +181,29 @@ class MainScreenVm @Inject constructor(
             return
         }
 
+        val revealTogether = _uiState.value.listOfApps.isEmpty()
         _uiState.update { it.copy(isLocaleRefreshRunning = true) }
         val refreshStart = SystemClock.elapsedRealtime()
         var refreshedApps = 0
         try {
-            refreshAppLocaleStatesUseCase(currentApps).collect { updates ->
-                refreshedApps += updates.size
-                val byPackage = updates.associateBy { it.pkg }
-                updateDerived { state ->
-                    state.copy(
-                        listOfApps = state.listOfApps.map { byPackage[it.pkg] ?: it }
-                    )
+            if (revealTogether) {
+                val byPackage = HashMap<String, AppInfo>(apps.size)
+                refreshAppLocaleStatesUseCase(apps).collect { updates ->
+                    refreshedApps += updates.size
+                    updates.forEach { byPackage[it.pkg] = it }
+                }
+                updateDerived {
+                    it.copy(listOfApps = apps.map { app -> byPackage[app.pkg] ?: app })
+                }
+            } else {
+                refreshAppLocaleStatesUseCase(apps).collect { updates ->
+                    refreshedApps += updates.size
+                    val byPackage = updates.associateBy { it.pkg }
+                    updateDerived { state ->
+                        state.copy(
+                            listOfApps = state.listOfApps.map { byPackage[it.pkg] ?: it }
+                        )
+                    }
                 }
             }
         } finally {

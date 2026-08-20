@@ -6,6 +6,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.navigationevent.NavigationEventInfo
+import androidx.navigationevent.compose.NavigationBackHandler
+import androidx.navigationevent.compose.rememberNavigationEventState
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
@@ -15,11 +18,20 @@ import vegabobo.languageselector.R
 
 @Composable
 fun ShizukuRequiredWarning(
+    show: Boolean,
+    onDismiss: () -> Unit,
     onClickContinue: () -> Unit
 ) {
+    val backState = rememberNavigationEventState(NavigationEventInfo.None)
+    NavigationBackHandler(
+        state = backState,
+        isBackEnabled = show,
+        onBackCompleted = onDismiss
+    )
+
     OverlayDialog(
-        show = true,
-        onDismissRequest = {},
+        show = show,
+        onDismissRequest = onDismiss,
         title = stringResource(id = R.string.permissions_required)
     ) {
         Text(

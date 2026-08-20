@@ -20,6 +20,8 @@
     <string name="unpin_message">This removes it from pinned languages and the Quick Settings tile.</string>
     <string name="unpin">Unpin</string>
     <string name="about">About</string>
+    <string name="about_open_source">Open source</string>
+    <string name="action_back">Back</string>
     <string name="deps_libs">Dependencies and libraries</string>
     <string name="version">version %1$s (%2$s)</string>
     <string name="app">Application</string>

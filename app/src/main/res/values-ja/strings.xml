@@ -21,6 +21,8 @@
     <string name="unpin_message">ピン留めした言語とクイック設定タイルから削除されます。</string>
     <string name="unpin">解除</string>
     <string name="about">About</string>
+    <string name="about_open_source">オープンソース</string>
+    <string name="action_back">戻る</string>
     <string name="deps_libs">依存関係およびライブラリ:</string>
     <string name="version">Version %1$s (%2$s)</string>
     <string name="app">アプリケーション</string>

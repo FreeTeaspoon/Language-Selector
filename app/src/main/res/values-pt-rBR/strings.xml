@@ -21,6 +21,8 @@
     <string name="unpin_message">Isso remove o idioma dos idiomas fixados e do atalho de configurações rápidas.</string>
     <string name="unpin">Desafixar</string>
     <string name="about">Sobre</string>
+    <string name="about_open_source">Código aberto</string>
+    <string name="action_back">Voltar</string>
     <string name="deps_libs">Dependências e bibliotecas</string>
     <string name="version">versão %1$s (%2$s)</string>
     <string name="app">Aplicativo</string>

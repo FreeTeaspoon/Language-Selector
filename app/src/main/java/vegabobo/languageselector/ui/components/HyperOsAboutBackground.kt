@@ -2,22 +2,23 @@ package vegabobo.languageselector.ui.components
 
 import android.os.Build
 import androidx.annotation.RequiresApi
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
 import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.shader.isRenderEffectSupported
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -25,55 +26,67 @@ import vegabobo.languageselector.ui.components.hyperos.BgEffectConfig
 import vegabobo.languageselector.ui.components.hyperos.BgEffectPainter
 import vegabobo.languageselector.ui.components.hyperos.DeviceType
 import vegabobo.languageselector.ui.components.hyperos.bgEffectDraw
+import kotlin.math.floor
 
 @Composable
 fun HyperOsAboutBackground(
-    scrollProgress: Float,
     modifier: Modifier = Modifier,
+    backdropModifier: Modifier = Modifier,
+    dynamicBackground: Boolean = true,
+    alpha: () -> Float = { 1f },
     content: @Composable BoxScope.() -> Unit
 ) {
-    val surface = MiuixTheme.colorScheme.surface
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(surface)
-    ) {
-        if (
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            isRuntimeShaderSupported() &&
-            isRenderEffectSupported()
-        ) {
-            Os3ShaderBackground(scrollProgress = scrollProgress)
-        }
+    val shadersSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+        isRuntimeShaderSupported() &&
+        isRenderEffectSupported()
+    if (!shadersSupported) {
+        Box(modifier = modifier, content = content)
+        return
+    }
+    Box(modifier = modifier) {
+        Os3ShaderBackground(
+            dynamicBackground = dynamicBackground,
+            backdropModifier = backdropModifier,
+            alpha = alpha
+        )
         content()
     }
 }
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @Composable
-private fun Os3ShaderBackground(scrollProgress: Float) {
+private fun Os3ShaderBackground(
+    dynamicBackground: Boolean,
+    backdropModifier: Modifier,
+    alpha: () -> Float
+) {
     val isDark = isSystemInDarkTheme()
     val surface = MiuixTheme.colorScheme.surface
     val painter = remember { BgEffectPainter(isOs3 = true) }
     val preset = remember(isDark) {
         BgEffectConfig.get(DeviceType.PHONE, isDark = isDark, isOs3 = true)
     }
-    val transition = rememberInfiniteTransition(label = "AboutOs3ColorStage")
-    val colorStage by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 3f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(
-                durationMillis = (preset.colorInterpPeriod * 1000).toInt(),
-                easing = LinearEasing
-            ),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "AboutOs3ColorStage"
-    )
+    val colorStage = remember { Animatable(0f) }
+    val currentAlpha by rememberUpdatedState(alpha)
+
+    LaunchedEffect(dynamicBackground, preset) {
+        if (!dynamicBackground) return@LaunchedEffect
+        var targetStage = floor(colorStage.value) + 1f
+        while (isActive) {
+            snapshotFlow { currentAlpha() > 0f }.first { it }
+            delay((preset.colorInterpPeriod * 500).toLong())
+            colorStage.animateTo(
+                targetValue = targetStage,
+                animationSpec = spring(dampingRatio = 0.9f, stiffness = 35f)
+            )
+            targetStage += 1f
+        }
+    }
+
     Spacer(
         modifier = Modifier
             .fillMaxSize()
+            .then(backdropModifier)
             .bgEffectDraw(
                 painter = painter,
                 preset = preset,
@@ -81,10 +94,10 @@ private fun Os3ShaderBackground(scrollProgress: Float) {
                 isDarkTheme = isDark,
                 surface = surface,
                 effectBackground = true,
-                isFullSize = false,
-                playing = true,
-                colorStage = { colorStage },
-                alpha = { (1f - scrollProgress).coerceIn(0f, 1f) }
+                isFullSize = true,
+                playing = dynamicBackground,
+                colorStage = { colorStage.value },
+                alpha = alpha
             )
     )
 }

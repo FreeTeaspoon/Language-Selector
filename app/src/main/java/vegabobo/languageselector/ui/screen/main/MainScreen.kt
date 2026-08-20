@@ -154,6 +154,11 @@ fun MainScreenContent(
     val backdrop = rememberAppBlurBackdrop()
     val barColor = if (backdrop != null) Color.Transparent else MiuixTheme.colorScheme.surface
     val searchStatus = state.search.copy(label = stringResource(R.string.search))
+    val needsShizuku = state.isOperationModeResolved && state.operationMode == OperationMode.NONE
+    var shizukuWarningDismissed by remember { mutableStateOf(false) }
+    LaunchedEffect(needsShizuku) {
+        if (!needsShizuku) shizukuWarningDismissed = false
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
@@ -213,9 +218,11 @@ fun MainScreenContent(
                         onAppClick = actions.onAppClick,
                         onStatusChange = actions.onSearchStatusChange
                     )
-                    if (state.isOperationModeResolved && state.operationMode == OperationMode.NONE) {
-                        ShizukuRequiredWarning(onClickContinue = actions.onRequestShizuku)
-                    }
+                    ShizukuRequiredWarning(
+                        show = needsShizuku && !shizukuWarningDismissed,
+                        onDismiss = { shizukuWarningDismissed = true },
+                        onClickContinue = actions.onRequestShizuku
+                    )
                     MiuixPopupHost()
                 }
             },
@@ -239,7 +246,7 @@ fun MainScreenContent(
                     appliedSortOrder = sortOrder
                     listState.scrollToItem(0)
                 }
-                if (state.isLoading && state.listOfApps.isEmpty()) {
+                if (state.isLoading) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()

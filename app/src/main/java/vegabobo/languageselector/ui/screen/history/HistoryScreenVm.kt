@@ -41,18 +41,10 @@ class HistoryScreenVm @Inject constructor(
             val apps = dao.getHistory().map { entity ->
                 async { runCatching { appRepository.loadApp(entity.pkg) }.getOrNull() }
             }.awaitAll().filterNotNull()
-            _uiState.value = HistoryScreenState(apps = apps, isLoading = false)
-
-            apps.forEach { app ->
-                val modified = localeRepository.getModifiedState(app.pkg)
-                _uiState.update { state ->
-                    state.copy(
-                        apps = state.apps.map {
-                            if (it.pkg == app.pkg) it.copy(modifiedState = modified) else it
-                        }
-                    )
-                }
-            }
+            val appsWithTags = apps.map { app ->
+                async { app.copy(modifiedState = localeRepository.getModifiedState(app.pkg)) }
+            }.awaitAll()
+            _uiState.value = HistoryScreenState(apps = appsWithTags, isLoading = false)
         }
     }
 
