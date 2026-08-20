@@ -82,6 +82,7 @@ import vegabobo.languageselector.ui.screen.main.SearchResultState
 import vegabobo.languageselector.ui.screen.main.animationFinished
 import vegabobo.languageselector.ui.screen.main.cancelRequested
 import vegabobo.languageselector.ui.screen.main.closeRequested
+import vegabobo.languageselector.ui.theme.PageSpacing
 
 @Composable
 fun AppSearchStatus.TopAppBarAnim(
@@ -241,7 +242,7 @@ fun AppSearchPager(
 
                 SearchResultState.Results -> LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(top = 6.dp, bottom = bottomPadding)
+                    contentPadding = PaddingValues(top = PageSpacing.ExtraTop, bottom = bottomPadding)
                 ) {
                     items(results, key = { it.pkg }) { app ->
                         AppListItem(

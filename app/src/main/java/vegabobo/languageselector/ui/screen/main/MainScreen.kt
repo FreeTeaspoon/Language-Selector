@@ -71,6 +71,7 @@ import vegabobo.languageselector.ui.components.CollapsedAppSearch
 import vegabobo.languageselector.ui.components.SearchBox
 import vegabobo.languageselector.ui.components.TopAppBarAnim
 import vegabobo.languageselector.ui.components.rememberAppBlurBackdrop
+import vegabobo.languageselector.ui.theme.PageSpacing
 
 data class MainScreenActions(
     val onAppClick: (AppInfo) -> Unit,
@@ -224,7 +225,7 @@ fun MainScreenContent(
         ) { innerPadding ->
             val layoutDirection = LocalLayoutDirection.current
             val listPadding = PaddingValues(
-                top = innerPadding.calculateTopPadding() + 6.dp,
+                top = innerPadding.calculateTopPadding() + PageSpacing.ExtraTop,
                 start = innerPadding.calculateStartPadding(layoutDirection),
                 end = innerPadding.calculateEndPadding(layoutDirection),
                 bottom = bottomInset

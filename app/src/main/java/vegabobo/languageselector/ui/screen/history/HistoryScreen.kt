@@ -60,6 +60,7 @@ import vegabobo.languageselector.ui.components.AppListItem
 import vegabobo.languageselector.ui.components.BackButton
 import vegabobo.languageselector.ui.components.BlurredTopBar
 import vegabobo.languageselector.ui.components.rememberAppBlurBackdrop
+import vegabobo.languageselector.ui.theme.PageSpacing
 
 @Composable
 fun HistoryScreen(
@@ -157,7 +158,7 @@ fun HistoryScreen(
                         .scrollEndHaptic()
                         .overScrollVertical(),
                     contentPadding = PaddingValues(
-                        top = innerPadding.calculateTopPadding() + 6.dp,
+                        top = innerPadding.calculateTopPadding() + PageSpacing.ExtraTop,
                         bottom = bottomInset
                     ),
                     overscrollEffect = null

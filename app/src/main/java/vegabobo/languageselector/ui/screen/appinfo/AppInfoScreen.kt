@@ -2,6 +2,7 @@ package vegabobo.languageselector.ui.screen.appinfo
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,8 +40,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigationevent.NavigationEventInfo
 import androidx.navigationevent.compose.NavigationBackHandler
@@ -76,6 +78,7 @@ import vegabobo.languageselector.ui.components.BlurredTopBar
 import vegabobo.languageselector.ui.components.LocaleItemList
 import vegabobo.languageselector.ui.components.ModifiedStatusTag
 import vegabobo.languageselector.ui.components.rememberAppBlurBackdrop
+import vegabobo.languageselector.ui.theme.PageSpacing
 
 @Composable
 fun AppInfoScreen(
@@ -171,7 +174,7 @@ fun AppInfoScreen(
             LazyColumn(
                 state = listState,
                 contentPadding = PaddingValues(
-                    top = contentPadding.calculateTopPadding() + 6.dp,
+                    top = contentPadding.calculateTopPadding() + PageSpacing.ExtraTop,
                     bottom = bottomInset + 12.dp
                 ),
                 modifier = Modifier
@@ -305,7 +308,7 @@ private fun AppHeader(state: AppInfoState) {
             .fillMaxWidth()
             .padding(horizontal = 12.dp)
             .padding(bottom = 12.dp),
-        insideMargin = PaddingValues(12.dp)
+        insideMargin = PaddingValues(start = 12.dp, end = 16.dp, top = 10.dp, bottom = 10.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (state.applicationInfo != null) {
@@ -325,35 +328,38 @@ private fun AppHeader(state: AppInfoState) {
             }
             Column(
                 modifier = Modifier
-                    .padding(start = 14.dp)
+                    .padding(start = 12.dp, end = 8.dp)
                     .weight(1f)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = state.appName,
-                        style = MiuixTheme.textStyles.title2,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
-                    if (state.modifiedState == ModifiedState.Modified) {
-                        ModifiedStatusTag(modifier = Modifier.padding(start = 8.dp))
-                    }
-                }
+                Text(
+                    text = state.appName,
+                    color = MiuixTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight(550),
+                    modifier = Modifier.basicMarquee(),
+                    maxLines = 1,
+                    softWrap = false
+                )
                 Text(
                     text = state.currentLanguage.ifEmpty { stringResource(R.string.system_default) },
-                    style = MiuixTheme.textStyles.body2,
-                    color = MiuixTheme.colorScheme.onSurfaceSecondary,
+                    fontSize = 12.sp,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.basicMarquee(),
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    softWrap = false
                 )
                 Text(
                     text = state.appPackage,
-                    style = MiuixTheme.textStyles.body2,
+                    fontSize = 12.sp,
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.basicMarquee(),
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    softWrap = false
                 )
+            }
+            if (state.modifiedState == ModifiedState.Modified) {
+                ModifiedStatusTag()
             }
         }
     }
