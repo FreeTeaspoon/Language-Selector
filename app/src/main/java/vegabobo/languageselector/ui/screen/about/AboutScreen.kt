@@ -132,7 +132,12 @@ private fun AboutScreenContent(
 
     Scaffold(
         topBar = {
-            BlurredTopBar(backdrop = barBackdrop, active = blurActive) {
+            BlurredTopBar(
+                backdrop = barBackdrop,
+                active = blurActive,
+                progressive = true,
+                scrollBehavior = scrollBehavior,
+            ) {
                 SmallTopAppBar(
                     title = state.title,
                     color = barColor,

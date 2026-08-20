@@ -174,12 +174,11 @@ fun AppInfoScreen(
             LazyColumn(
                 state = listState,
                 contentPadding = PaddingValues(
-                    top = contentPadding.calculateTopPadding(),
+                    top = contentPadding.calculateTopPadding() + 6.dp,
                     bottom = bottomInset + 12.dp
                 ),
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(top = 16.dp)
                     .nestedScroll(scrollBehavior.nestedScrollConnection)
                     .overScrollVertical()
                     .scrollEndHaptic()

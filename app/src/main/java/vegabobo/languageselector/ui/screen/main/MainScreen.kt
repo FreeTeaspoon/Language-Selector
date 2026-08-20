@@ -1,15 +1,20 @@
 package vegabobo.languageselector.ui.screen.main
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.captionBar
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
@@ -29,8 +34,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
@@ -44,6 +50,7 @@ import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.PopupPositionProvider
 import top.yukonga.miuix.kmp.basic.PullToRefresh
 import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.rememberPullToRefreshState
 import top.yukonga.miuix.kmp.blur.layerBackdrop
@@ -252,31 +259,50 @@ fun MainScreenContent(
                 .add(WindowInsets.displayCutout)
                 .only(WindowInsetsSides.Horizontal)
         ) { innerPadding ->
+            val layoutDirection = LocalLayoutDirection.current
+            val listPadding = PaddingValues(
+                top = innerPadding.calculateTopPadding() + 6.dp,
+                start = innerPadding.calculateStartPadding(layoutDirection),
+                end = innerPadding.calculateEndPadding(layoutDirection),
+                bottom = bottomInset
+            )
             searchStatus.SearchBox {
-                Box(modifier = if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier) {
-                    if (state.isLoading && state.listOfApps.isEmpty()) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(innerPadding),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            InfiniteProgressIndicator()
+                if (state.isLoading && state.listOfApps.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier)
+                            .padding(innerPadding),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            InfiniteProgressIndicator(size = 20.dp)
+                            Spacer(Modifier.height(10.dp))
+                            Text(
+                                text = stringResource(R.string.loading),
+                                style = MiuixTheme.textStyles.body1,
+                                textAlign = TextAlign.Center,
+                            )
                         }
-                    } else {
-                        PullToRefresh(
-                            isRefreshing = state.isRefreshing,
-                            onRefresh = actions.onRefresh,
-                            pullToRefreshState = pullState,
-                            topAppBarScrollBehavior = scrollBehavior,
-                            refreshTexts = listOf(
-                                stringResource(R.string.refresh_pulling),
-                                stringResource(R.string.refresh_release),
-                                stringResource(R.string.refresh_refreshing),
-                                stringResource(R.string.refresh_complete)
-                            ),
-                            contentPadding = PaddingValues(top = innerPadding.calculateTopPadding() + 6.dp)
-                        ) {
+                    }
+                } else {
+                    PullToRefresh(
+                        isRefreshing = state.isRefreshing,
+                        onRefresh = actions.onRefresh,
+                        pullToRefreshState = pullState,
+                        refreshTexts = listOf(
+                            stringResource(R.string.refresh_pulling),
+                            stringResource(R.string.refresh_release),
+                            stringResource(R.string.refresh_refreshing),
+                            stringResource(R.string.refresh_complete)
+                        ),
+                        contentPadding = PaddingValues(
+                            top = listPadding.calculateTopPadding(),
+                            start = listPadding.calculateStartPadding(layoutDirection),
+                            end = listPadding.calculateEndPadding(layoutDirection)
+                        )
+                    ) {
+                        Box(modifier = if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier) {
                             LazyColumn(
                                 state = listState,
                                 modifier = Modifier
@@ -284,10 +310,7 @@ fun MainScreenContent(
                                     .scrollEndHaptic()
                                     .overScrollVertical()
                                     .nestedScroll(scrollBehavior.nestedScrollConnection),
-                                contentPadding = PaddingValues(
-                                    top = innerPadding.calculateTopPadding() + 6.dp,
-                                    bottom = bottomInset
-                                ),
+                                contentPadding = listPadding,
                                 overscrollEffect = null
                             ) {
                                 if (state.preferences.modifiedOnly && state.isLocaleRefreshRunning) {
