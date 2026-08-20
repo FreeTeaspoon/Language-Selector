@@ -83,22 +83,16 @@ class AppInfoVm @Inject constructor(
                 currentLocale == null -> it.copy(modifiedState = ModifiedState.Unavailable)
                 currentLocale.isEmpty -> it.copy(
                     currentLanguage = "",
+                    currentLanguageTag = "",
                     modifiedState = ModifiedState.Unmodified
                 )
                 else -> it.copy(
                     currentLanguage = currentLocale[0].capDisplayName(),
+                    currentLanguageTag = currentLocale[0].toLanguageTag(),
                     modifiedState = ModifiedState.Modified
                 )
             }
         }
-    }
-
-    fun onClickSingleLanguage(index: Int) {
-        _uiState.update { it.copy(selectedLanguage = index) }
-    }
-
-    fun onBackWhenSelectedLang() {
-        _uiState.update { it.copy(selectedLanguage = -1) }
     }
 
     fun onClickLocale(singleLocale: SingleLocale) {
@@ -135,6 +129,7 @@ class AppInfoVm @Inject constructor(
             _uiState.update {
                 it.copy(
                     currentLanguage = "",
+                    currentLanguageTag = "",
                     modifiedState = ModifiedState.Unmodified
                 )
             }

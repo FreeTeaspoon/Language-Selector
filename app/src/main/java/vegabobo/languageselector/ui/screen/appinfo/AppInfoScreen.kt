@@ -1,6 +1,11 @@
 package vegabobo.languageselector.ui.screen.appinfo
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Arrangement
@@ -17,6 +22,7 @@ import androidx.compose.foundation.layout.captionBar
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
@@ -75,6 +81,7 @@ import vegabobo.languageselector.domain.apps.ModifiedState
 import vegabobo.languageselector.ui.components.AppIconImage
 import vegabobo.languageselector.ui.components.BackButton
 import vegabobo.languageselector.ui.components.BlurredTopBar
+import vegabobo.languageselector.ui.components.LocaleChildItem
 import vegabobo.languageselector.ui.components.LocaleItemList
 import vegabobo.languageselector.ui.components.ModifiedStatusTag
 import vegabobo.languageselector.ui.components.rememberAppBlurBackdrop
@@ -91,7 +98,6 @@ fun AppInfoScreen(
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val scrollBehavior = MiuixScrollBehavior()
-    val selectedLanguageBackState = rememberNavigationEventState(NavigationEventInfo.None)
     val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
         WindowInsets.captionBar.asPaddingValues().calculateBottomPadding()
     val backdrop = rememberAppBlurBackdrop()
@@ -102,6 +108,7 @@ fun AppInfoScreen(
         onSettings = appInfoVm::onClickSettings,
     )
     var localePendingUnpin by remember { mutableStateOf<SingleLocale?>(null) }
+    var expandedLanguages by remember { mutableStateOf(setOf<String>()) }
     val pinnedMessage = stringResource(R.string.pinned_ok)
     val unpinnedMessage = stringResource(R.string.unpinned)
 
@@ -188,73 +195,88 @@ fun AppInfoScreen(
                 AppHeader(uiState)
             }
 
-            if (uiState.selectedLanguage != -1) {
-                item { SmallTitle(text = stringResource(R.string.region)) }
-                items(uiState.listOfAllLanguages[uiState.selectedLanguage].locales.size) { index ->
-                    val locale = uiState.listOfAllLanguages[uiState.selectedLanguage].locales[index]
-                    LocaleItemList(
-                        itemText = locale.name,
-                        onClick = {
-                            appInfoVm.onClickLocale(locale)
-                            appInfoVm.onBackWhenSelectedLang()
-                            coroutineScope.launch { listState.scrollToItem(0) }
-                        },
-                        onLongClick = { onLocaleLongPress(locale) }
-                    )
-                }
-            } else {
-                if (uiState.listOfPinnedLanguages.isNotEmpty()) {
-                    item { SmallTitle(text = stringResource(R.string.pinned)) }
-                    items(uiState.listOfPinnedLanguages.size) { index ->
-                        val locale = uiState.listOfPinnedLanguages[index]
-                        LocaleItemList(
-                            itemText = locale.name,
-                            onClick = { appInfoVm.onClickLocale(locale) },
-                            onLongClick = { localePendingUnpin = locale }
-                        )
-                    }
-                }
-
-                item { SmallTitle(text = stringResource(R.string.user_languages)) }
-                item {
-                    LocaleItemList(stringResource(R.string.system_default)) {
-                        appInfoVm.onClickResetLang()
-                    }
-                }
-                items(uiState.listOfSuggestedLanguages.size) { index ->
-                    val locale = uiState.listOfSuggestedLanguages[index]
+            if (uiState.listOfPinnedLanguages.isNotEmpty()) {
+                item { SmallTitle(text = stringResource(R.string.pinned)) }
+                items(uiState.listOfPinnedLanguages.size) { index ->
+                    val locale = uiState.listOfPinnedLanguages[index]
                     LocaleItemList(
                         itemText = locale.name,
                         onClick = { appInfoVm.onClickLocale(locale) },
-                        onLongClick = { onLocaleLongPress(locale) }
+                        onLongClick = { localePendingUnpin = locale }
                     )
                 }
+            }
 
-                item { SmallTitle(text = stringResource(R.string.all_languages)) }
-                items(uiState.listOfAllLanguages.size) { index ->
-                    val language = uiState.listOfAllLanguages[index]
+            item { SmallTitle(text = stringResource(R.string.user_languages)) }
+            item {
+                LocaleItemList(stringResource(R.string.system_default)) {
+                    appInfoVm.onClickResetLang()
+                }
+            }
+            items(uiState.listOfSuggestedLanguages.size) { index ->
+                val locale = uiState.listOfSuggestedLanguages[index]
+                LocaleItemList(
+                    itemText = locale.name,
+                    onClick = { appInfoVm.onClickLocale(locale) },
+                    onLongClick = { onLocaleLongPress(locale) }
+                )
+            }
+
+            item { SmallTitle(text = stringResource(R.string.all_languages)) }
+            items(uiState.listOfAllLanguages.size) { index ->
+                val language = uiState.listOfAllLanguages[index]
+                if (!language.hasMultipleSelections()) {
                     LocaleItemList(
                         itemText = language.language,
                         onClick = {
-                            appInfoVm.onClickSingleLanguage(index)
-                            coroutineScope.launch { listState.scrollToItem(0) }
+                            language.locales.firstOrNull()?.let(appInfoVm::onClickLocale)
                         },
                         onLongClick = {
                             language.pinLocale()?.let(::onLocaleLongPress)
                         }
                     )
+                } else {
+                    val expanded = expandedLanguages.contains(language.language)
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        LocaleItemList(
+                            itemText = language.language,
+                            showArrow = true,
+                            onClick = {
+                                expandedLanguages = if (expanded) {
+                                    expandedLanguages - language.language
+                                } else {
+                                    expandedLanguages + language.language
+                                }
+                            },
+                            onLongClick = {
+                                language.pinLocale()?.let(::onLocaleLongPress)
+                            }
+                        )
+                        AnimatedVisibility(
+                            visible = expanded,
+                            enter = expandVertically() + fadeIn(),
+                            exit = shrinkVertically() + fadeOut()
+                        ) {
+                            Column {
+                                Spacer(Modifier.height(9.dp))
+                                language.locales.forEach { locale ->
+                                    LocaleChildItem(
+                                        itemText = locale.name,
+                                        selected = locale.languageTag == uiState.currentLanguageTag,
+                                        onClick = { appInfoVm.onClickLocale(locale) },
+                                        onLongClick = { onLocaleLongPress(locale) }
+                                    )
+                                }
+                                Spacer(Modifier.height(6.dp))
+                            }
+                        }
+                    }
                 }
             }
             item { Spacer(Modifier.size(1.dp)) }
             }
         }
     }
-
-    NavigationBackHandler(
-        state = selectedLanguageBackState,
-        isBackEnabled = uiState.selectedLanguage != -1 && localePendingUnpin == null,
-        onBackCompleted = appInfoVm::onBackWhenSelectedLang
-    )
 }
 
 @Composable

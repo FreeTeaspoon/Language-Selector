@@ -28,6 +28,8 @@ fun LocaleRegion.pinLocale(): SingleLocale? {
     return languageOnly ?: locales.first()
 }
 
+fun LocaleRegion.hasMultipleSelections(): Boolean = locales.size > 1
+
 fun List<SingleLocale>.containsLocale(locale: SingleLocale): Boolean =
     any { it.languageTag == locale.languageTag }
 
@@ -36,9 +38,9 @@ data class AppInfoState(
     val appName: String = "",
     val appPackage: String = "",
     val currentLanguage: String = "",
+    val currentLanguageTag: String = "",
     val modifiedState: ModifiedState = ModifiedState.Unknown,
     val listOfSuggestedLanguages: MutableList<SingleLocale> = mutableStateListOf(),
     val listOfPinnedLanguages: MutableList<SingleLocale> = mutableStateListOf(),
-    val selectedLanguage: Int = -1,
     val listOfAllLanguages: MutableList<LocaleRegion> = mutableStateListOf(),
 )

@@ -49,6 +49,23 @@ class LocalePinningTest {
     }
 
     @Test
+    fun hasMultipleSelections_requiresMoreThanOneLocale() {
+        assertFalse(
+            LocaleRegion("Esperanto", arrayListOf(SingleLocale("Esperanto", "eo")))
+                .hasMultipleSelections()
+        )
+        assertTrue(
+            LocaleRegion(
+                "English",
+                arrayListOf(
+                    SingleLocale("English", "en"),
+                    SingleLocale("English (United States)", "en-US"),
+                )
+            ).hasMultipleSelections()
+        )
+    }
+
+    @Test
     fun localeManager_includesAtLeastOneLocalePerLanguage() {
         val languages = LocaleManager().localeList
 
