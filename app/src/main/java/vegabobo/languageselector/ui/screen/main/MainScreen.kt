@@ -237,8 +237,6 @@ fun MainScreenContent(
                     if (appliedSortOrder == sortOrder) return@LaunchedEffect
                     appliedSortOrder = sortOrder
                     listState.scrollToItem(0)
-                    scrollBehavior.state.heightOffset = 0f
-                    scrollBehavior.state.contentOffset = 0f
                 }
                 if (state.isLoading && state.listOfApps.isEmpty()) {
                     Box(

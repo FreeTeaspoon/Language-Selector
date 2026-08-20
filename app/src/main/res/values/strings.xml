@@ -42,11 +42,11 @@
     <string name="search_empty_hint">Type something to search</string>
     <string name="more_options">More options</string>
     <string name="sort">Sort</string>
-    <string name="sort_name">Name</string>
+    <string name="sort_name">Application name</string>
     <string name="sort_package">Package name</string>
     <string name="sort_install_time">Install time</string>
     <string name="sort_update_time">Update time</string>
-    <string name="sort_reverse">Reverse order</string>
+    <string name="sort_reverse">Reverse</string>
     <string name="modified_only">Modified apps only</string>
     <string name="modified_tag">MODIFIED</string>
     <string name="system_tag">SYSTEM</string>
