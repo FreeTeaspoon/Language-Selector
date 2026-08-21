@@ -1,7 +1,7 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
-val appVersionCode = 21
-val appVersionName = "1.05.6"
+val appVersionCode = 22
+val appVersionName = "1.05.7"
 
 plugins {
     alias(libs.plugins.com.android.application)
@@ -10,6 +10,31 @@ plugins {
     alias(libs.plugins.com.mikepenz.aboutlibraries)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.androidx.room)
+}
+
+val releaseStoreFile = providers.gradleProperty("releaseStoreFile")
+val releaseStorePassword = providers.gradleProperty("releaseStorePassword")
+val releaseKeyAlias = providers.gradleProperty("releaseKeyAlias")
+val releaseKeyPassword = providers.gradleProperty("releaseKeyPassword")
+val releaseSigningConfigured = listOf(
+    releaseStoreFile,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword
+).all { it.isPresent }
+val releaseSigningPartiallyConfigured = listOf(
+    releaseStoreFile,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword
+).any { it.isPresent } && !releaseSigningConfigured
+
+if (releaseSigningPartiallyConfigured) {
+    throw GradleException(
+        "Release signing requires all four properties: " +
+            "releaseStoreFile, releaseStorePassword, releaseKeyAlias, releaseKeyPassword"
+    )
 }
 
 android {
@@ -29,9 +54,23 @@ android {
         }
     }
 
+    signingConfigs {
+        if (releaseSigningConfigured) {
+            create("release") {
+                storeFile = file(releaseStoreFile.get())
+                storePassword = releaseStorePassword.get()
+                keyAlias = releaseKeyAlias.get()
+                keyPassword = releaseKeyPassword.get()
+            }
+        }
+    }
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (releaseSigningConfigured) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -55,9 +94,14 @@ android {
         }
     }
     lint {
-        checkReleaseBuilds = false
-        abortOnError = false
+        checkReleaseBuilds = true
+        abortOnError = true
     }
+
+}
+
+room {
+    schemaDirectory("$projectDir/schemas")
 }
 
 kotlin {

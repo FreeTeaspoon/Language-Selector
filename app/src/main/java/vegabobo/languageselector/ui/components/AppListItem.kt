@@ -16,6 +16,9 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -41,7 +44,8 @@ fun AppListItem(
     Card(
         modifier = modifier
             .padding(horizontal = 12.dp)
-            .padding(bottom = 12.dp),
+            .padding(bottom = 12.dp)
+            .semantics(mergeDescendants = true) { role = Role.Button },
         insideMargin = PaddingValues(start = 10.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
         onClick = { onClickApp(app.pkg) },
         pressFeedbackType = PressFeedbackType.Sink,
@@ -50,7 +54,6 @@ fun AppListItem(
         Row(verticalAlignment = Alignment.CenterVertically) {
             AppIconImage(
                 applicationInfo = app.applicationInfo,
-                label = app.name,
                 size = 48.dp,
                 modifier = Modifier.size(48.dp)
             )

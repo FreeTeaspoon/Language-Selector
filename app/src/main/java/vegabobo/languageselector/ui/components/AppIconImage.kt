@@ -36,7 +36,7 @@ private data class IconKey(
 fun AppIconImage(
     modifier: Modifier = Modifier,
     applicationInfo: ApplicationInfo,
-    label: String,
+    contentDescription: String? = null,
     size: Dp = 40.dp
 ) {
     val context = LocalContext.current
@@ -70,7 +70,7 @@ fun AppIconImage(
             } else {
                 Image(
                     bitmap = icon.asImageBitmap(),
-                    contentDescription = label,
+                    contentDescription = contentDescription,
                     modifier = Modifier.fillMaxSize()
                 )
             }

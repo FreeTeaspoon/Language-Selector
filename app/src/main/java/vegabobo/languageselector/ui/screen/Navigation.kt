@@ -54,8 +54,14 @@ private class Navigator(
 @Composable
 fun Navigation(
     activityResumeCount: Int,
-    requestAppListAccess: (() -> Unit) -> Unit,
-    requestShizukuAccess: (() -> Unit) -> Unit
+    requestAppListAccess: (onGranted: () -> Unit, onDenied: () -> Unit) -> Unit,
+    requestShizukuAccess: (
+        onGranted: () -> Unit,
+        onUnavailable: () -> Unit,
+        onDenied: () -> Unit
+    ) -> Unit,
+    openAppSettings: () -> Unit,
+    openShizuku: () -> Unit
 ) {
     val backStack = rememberNavBackStack<AppRoute>(AppRoute.Home)
     val navigator = remember(backStack) { Navigator(backStack) }
@@ -85,6 +91,8 @@ fun Navigation(
                 navigateToAbout = { navigator.push(AppRoute.About) },
                 requestAppListAccess = requestAppListAccess,
                 requestShizukuAccess = requestShizukuAccess,
+                openAppSettings = openAppSettings,
+                openShizuku = openShizuku,
             )
         }
         entry<AppRoute.AppInfo>(swipeDismiss = swipeBackDirection) { key ->

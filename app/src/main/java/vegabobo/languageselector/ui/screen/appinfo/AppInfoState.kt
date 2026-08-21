@@ -2,6 +2,7 @@ package vegabobo.languageselector.ui.screen.appinfo
 
 import android.content.pm.ApplicationInfo
 import androidx.compose.runtime.mutableStateListOf
+import kotlinx.serialization.Serializable
 import vegabobo.languageselector.domain.apps.ModifiedState
 import java.util.Locale
 
@@ -10,6 +11,7 @@ data class LocaleRegion(
     val locales: ArrayList<SingleLocale>
 )
 
+@Serializable
 data class SingleLocale(
     val name: String,
     val languageTag: String
@@ -40,6 +42,7 @@ data class AppInfoState(
     val currentLanguage: String = "",
     val currentLanguageTag: String = "",
     val modifiedState: ModifiedState = ModifiedState.Unknown,
+    val isLocaleOperationRunning: Boolean = false,
     val listOfSuggestedLanguages: MutableList<SingleLocale> = mutableStateListOf(),
     val listOfPinnedLanguages: MutableList<SingleLocale> = mutableStateListOf(),
     val listOfAllLanguages: MutableList<LocaleRegion> = mutableStateListOf(),

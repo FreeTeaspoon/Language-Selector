@@ -9,10 +9,9 @@ import android.service.quicksettings.TileService
 import android.util.Log
 import rikka.shizuku.Shizuku
 import vegabobo.languageselector.service.UserServiceProvider
-import vegabobo.languageselector.ui.screen.appinfo.PrefConstants
 import vegabobo.languageselector.ui.screen.appinfo.SingleLocale
 import vegabobo.languageselector.ui.screen.appinfo.capDisplayName
-import vegabobo.languageselector.ui.screen.appinfo.parseSetLangs
+import vegabobo.languageselector.ui.screen.appinfo.getPinnedLocales
 import vegabobo.languageselector.ui.screen.main.OperationMode
 import vegabobo.languageselector.ui.screen.main.getLabel
 
@@ -89,11 +88,11 @@ class QSTile : TileService() {
     fun loadLangs() {
         if (!isLoaded) {
             val sp = getSharedPreferences(BuildConfig.APPLICATION_ID, Context.MODE_PRIVATE)
-            val set = sp.getStringSet(PrefConstants.PINNED_LOCALES, emptySet()) ?: emptySet()
-            if (set.isNotEmpty()) {
+            val pinnedLocales = sp.getPinnedLocales()
+            if (pinnedLocales.isNotEmpty()) {
                 val systemDefaultLocale = SingleLocale("", "")
                 locales.add(systemDefaultLocale)
-                locales.addAll(set.parseSetLangs())
+                locales.addAll(pinnedLocales)
             }
             isLoaded = true
         }

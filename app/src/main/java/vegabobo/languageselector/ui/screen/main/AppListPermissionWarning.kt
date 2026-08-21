@@ -17,12 +17,11 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import vegabobo.languageselector.R
 
 @Composable
-fun ShizukuRequiredWarning(
+fun AppListPermissionWarning(
     show: Boolean,
-    accessState: ShizukuAccessState,
     onDismiss: () -> Unit,
-    onClickContinue: () -> Unit,
-    onOpenShizuku: () -> Unit
+    onRetry: () -> Unit,
+    onOpenSettings: () -> Unit
 ) {
     val backState = rememberNavigationEventState(NavigationEventInfo.None)
     NavigationBackHandler(
@@ -34,32 +33,26 @@ fun ShizukuRequiredWarning(
     OverlayDialog(
         show = show,
         onDismissRequest = onDismiss,
-        title = stringResource(id = R.string.permissions_required)
+        title = stringResource(R.string.app_list_permission_required)
     ) {
         Text(
-            text = stringResource(
-                id = when (accessState) {
-                    ShizukuAccessState.Unavailable -> R.string.shizuku_unavailable
-                    ShizukuAccessState.Denied -> R.string.shizuku_permission_denied
-                    else -> R.string.shizuku_required
-                }
-            ),
+            text = stringResource(R.string.app_list_permission_message),
             color = MiuixTheme.colorScheme.onSurface
         )
         TextButton(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 12.dp),
-            text = stringResource(id = R.string.open_shizuku),
-            onClick = onOpenShizuku
+            text = stringResource(R.string.open_settings),
+            onClick = onOpenSettings
         )
         TextButton(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 12.dp),
-            text = stringResource(id = R.string.retry),
+            text = stringResource(R.string.retry),
             colors = ButtonDefaults.textButtonColorsPrimary(),
-            onClick = onClickContinue
+            onClick = onRetry
         )
     }
 }

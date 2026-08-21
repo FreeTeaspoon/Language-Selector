@@ -23,6 +23,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -40,6 +41,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import top.yukonga.miuix.kmp.basic.DropdownEntry
 import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.Icon
@@ -83,7 +87,10 @@ data class MainScreenActions(
     val onSystemAppsToggle: () -> Unit,
     val onModifiedOnlyToggle: () -> Unit,
     val onSearchStatusChange: (AppSearchStatus) -> Unit,
-    val onRequestShizuku: () -> Unit
+    val onRequestAppList: () -> Unit,
+    val onRequestShizuku: () -> Unit,
+    val onOpenAppSettings: () -> Unit,
+    val onOpenShizuku: () -> Unit
 )
 
 @Composable
@@ -92,19 +99,41 @@ fun MainScreen(
     navigateToAppScreen: (String) -> Unit,
     navigateToHistory: () -> Unit,
     navigateToAbout: () -> Unit,
-    requestAppListAccess: (() -> Unit) -> Unit,
-    requestShizukuAccess: (() -> Unit) -> Unit,
+    requestAppListAccess: (onGranted: () -> Unit, onDenied: () -> Unit) -> Unit,
+    requestShizukuAccess: (
+        onGranted: () -> Unit,
+        onUnavailable: () -> Unit,
+        onDenied: () -> Unit
+    ) -> Unit,
+    openAppSettings: () -> Unit,
+    openShizuku: () -> Unit,
     mainScreenVm: MainScreenVm = hiltViewModel()
 ) {
     val state by mainScreenVm.uiState.collectAsState()
-    LaunchedEffect(Unit) { mainScreenVm.reloadLastSelectedItem() }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, mainScreenVm) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                mainScreenVm.reloadLastSelectedItem()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     LaunchedEffect(activityResumeCount) {
-        if (activityResumeCount > 0) {
-            requestAppListAccess(mainScreenVm::onAppListPermissionGranted)
+        if (
+            activityResumeCount > 0 &&
+            state.appListPermissionState != AppListPermissionState.Denied
+        ) {
+            requestAppListAccess(
+                mainScreenVm::onAppListPermissionGranted,
+                mainScreenVm::onAppListPermissionDenied
+            )
         }
     }
 
     MainScreenContent(
+        activityResumeCount = activityResumeCount,
         state = state,
         actions = MainScreenActions(
             onAppClick = { app ->
@@ -119,15 +148,28 @@ fun MainScreen(
             onSystemAppsToggle = mainScreenVm::toggleSystemAppsVisibility,
             onModifiedOnlyToggle = mainScreenVm::toggleModifiedOnly,
             onSearchStatusChange = mainScreenVm::updateSearchStatus,
+            onRequestAppList = {
+                requestAppListAccess(
+                    mainScreenVm::onAppListPermissionGranted,
+                    mainScreenVm::onAppListPermissionDenied
+                )
+            },
             onRequestShizuku = {
-                requestShizukuAccess(mainScreenVm::onShizukuPermissionGranted)
-            }
+                requestShizukuAccess(
+                    mainScreenVm::onShizukuPermissionGranted,
+                    mainScreenVm::onShizukuUnavailable,
+                    mainScreenVm::onShizukuPermissionDenied
+                )
+            },
+            onOpenAppSettings = openAppSettings,
+            onOpenShizuku = openShizuku
         )
     )
 }
 
 @Composable
 fun MainScreenContent(
+    activityResumeCount: Int = 0,
     state: MainScreenState,
     actions: MainScreenActions
 ) {
@@ -155,8 +197,23 @@ fun MainScreenContent(
     val barColor = if (backdrop != null) Color.Transparent else MiuixTheme.colorScheme.surface
     val searchStatus = state.search.copy(label = stringResource(R.string.search))
     val needsShizuku = state.isOperationModeResolved && state.operationMode == OperationMode.NONE
+    val appListPermissionDenied = state.appListPermissionState == AppListPermissionState.Denied
+    val shizukuAccessNeedsAction = state.shizukuAccessState == ShizukuAccessState.Unavailable ||
+        state.shizukuAccessState == ShizukuAccessState.Denied
+    var appListWarningDismissed by remember { mutableStateOf(false) }
     var shizukuWarningDismissed by remember { mutableStateOf(false) }
-    LaunchedEffect(needsShizuku) {
+    val showAppListPermissionWarning = appListPermissionDenied && !appListWarningDismissed
+    val showShizukuWarning = !showAppListPermissionWarning &&
+        (needsShizuku || shizukuAccessNeedsAction) && !shizukuWarningDismissed
+    LaunchedEffect(state.appListPermissionState) {
+        if (!appListPermissionDenied) appListWarningDismissed = false
+    }
+    LaunchedEffect(activityResumeCount) {
+        if (activityResumeCount > 0 && appListPermissionDenied) {
+            appListWarningDismissed = false
+        }
+    }
+    LaunchedEffect(needsShizuku, state.shizukuAccessState) {
         if (!needsShizuku) shizukuWarningDismissed = false
     }
 
@@ -218,10 +275,20 @@ fun MainScreenContent(
                         onAppClick = actions.onAppClick,
                         onStatusChange = actions.onSearchStatusChange
                     )
+                    AppListPermissionWarning(
+                        show = showAppListPermissionWarning,
+                        onDismiss = { appListWarningDismissed = true },
+                        onRetry = {
+                            actions.onRequestAppList()
+                        },
+                        onOpenSettings = actions.onOpenAppSettings
+                    )
                     ShizukuRequiredWarning(
-                        show = needsShizuku && !shizukuWarningDismissed,
+                        show = showShizukuWarning,
+                        accessState = state.shizukuAccessState,
                         onDismiss = { shizukuWarningDismissed = true },
-                        onClickContinue = actions.onRequestShizuku
+                        onClickContinue = actions.onRequestShizuku,
+                        onOpenShizuku = actions.onOpenShizuku
                     )
                     MiuixPopupHost()
                 }
@@ -251,7 +318,8 @@ fun MainScreenContent(
                         modifier = Modifier
                             .fillMaxSize()
                             .then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier)
-                            .padding(innerPadding),
+                            .padding(innerPadding)
+                            .padding(bottom = bottomInset),
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -292,6 +360,22 @@ fun MainScreenContent(
                                 contentPadding = listPadding,
                                 overscrollEffect = null
                             ) {
+                                if (appListPermissionDenied) {
+                                    item(key = "app-list-permission-message") {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillParentMaxWidth()
+                                                .padding(horizontal = 24.dp, vertical = 32.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = stringResource(R.string.app_list_permission_message),
+                                                style = MiuixTheme.textStyles.body1,
+                                                textAlign = TextAlign.Center,
+                                            )
+                                        }
+                                    }
+                                }
                                 if (
                                     state.preferences.modifiedOnly &&
                                     state.isLocaleRefreshRunning &&

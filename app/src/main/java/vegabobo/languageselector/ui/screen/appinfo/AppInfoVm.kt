@@ -12,10 +12,15 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import vegabobo.languageselector.BuildConfig
@@ -27,7 +32,19 @@ import java.util.Locale
 import javax.inject.Inject
 
 object PrefConstants {
+    // Kept as a compatibility mirror for versions that predate ordered storage.
     const val PINNED_LOCALES = "pinned_locales"
+    const val PINNED_LOCALES_ORDERED = "pinned_locales_ordered"
+}
+
+private val pinnedLocalesJson = Json
+
+sealed interface AppInfoEvent {
+    data class LocaleApplied(val localeName: String?) : AppInfoEvent
+    data object LocaleApplyFailed : AppInfoEvent
+    data object LaunchUnavailable : AppInfoEvent
+    data object ForceStopCompleted : AppInfoEvent
+    data object ForceStopFailed : AppInfoEvent
 }
 
 @HiltViewModel
@@ -39,6 +56,8 @@ class AppInfoVm @Inject constructor(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(AppInfoState())
     val uiState: StateFlow<AppInfoState> = _uiState.asStateFlow()
+    private val _events = MutableSharedFlow<AppInfoEvent>(extraBufferCapacity = 1)
+    val events = _events.asSharedFlow()
 
     private lateinit var appInfo: ApplicationInfo
 
@@ -96,14 +115,10 @@ class AppInfoVm @Inject constructor(
     }
 
     fun onClickLocale(singleLocale: SingleLocale) {
-        if (!::appInfo.isInitialized) return
-        viewModelScope.launch(Dispatchers.IO) {
-            localeRepository.setApplicationLocales(
-                appInfo.packageName,
-                LocaleList(singleLocale.toLocale())
-            )
-            updateCurrentLanguageStateInternal()
-        }
+        applyApplicationLocales(
+            locales = LocaleList(singleLocale.toLocale()),
+            localeName = singleLocale.name
+        )
     }
 
     fun onClickSettings() {
@@ -117,30 +132,86 @@ class AppInfoVm @Inject constructor(
 
     fun onClickOpen() {
         if (!::appInfo.isInitialized) return
-        val launchIntent = app.packageManager.getLaunchIntentForPackage(appInfo.packageName)
-        launchIntent?.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-        launchIntent?.let(app::startActivity)
+        val launchIntent = runCatching {
+            app.packageManager.getLaunchIntentForPackage(appInfo.packageName)
+        }.getOrNull()
+        if (launchIntent == null) {
+            emitEvent(AppInfoEvent.LaunchUnavailable)
+            return
+        }
+        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { app.startActivity(launchIntent) }
+            .onFailure { error ->
+                Log.w(
+                    BuildConfig.APPLICATION_ID,
+                    "Unable to launch ${appInfo.packageName}",
+                    error
+                )
+                emitEvent(AppInfoEvent.LaunchUnavailable)
+            }
     }
 
     fun onClickResetLang() {
-        if (!::appInfo.isInitialized) return
+        applyApplicationLocales(locales = LocaleList(), localeName = null)
+    }
+
+    private fun applyApplicationLocales(locales: LocaleList, localeName: String?) {
+        if (!::appInfo.isInitialized || _uiState.value.isLocaleOperationRunning) return
+        val previousModifiedState = _uiState.value.modifiedState
+        val optimisticModifiedState = if (locales.isEmpty) {
+            ModifiedState.Unmodified
+        } else {
+            ModifiedState.Modified
+        }
+        _uiState.update {
+            it.copy(
+                isLocaleOperationRunning = true,
+                modifiedState = optimisticModifiedState
+            )
+        }
         viewModelScope.launch(Dispatchers.IO) {
-            localeRepository.setApplicationLocales(appInfo.packageName, LocaleList())
-            _uiState.update {
-                it.copy(
-                    currentLanguage = "",
-                    currentLanguageTag = "",
-                    modifiedState = ModifiedState.Unmodified
-                )
+            try {
+                val succeeded = runCatching {
+                    localeRepository.setApplicationLocales(appInfo.packageName, locales)
+                        .also { if (it) updateCurrentLanguageStateInternal() }
+                }.getOrDefault(false)
+                if (succeeded) {
+                    _events.emit(AppInfoEvent.LocaleApplied(localeName))
+                } else {
+                    _uiState.update { it.copy(modifiedState = previousModifiedState) }
+                    _events.emit(AppInfoEvent.LocaleApplyFailed)
+                }
+            } finally {
+                _uiState.update { it.copy(isLocaleOperationRunning = false) }
             }
-            updateCurrentLanguageStateInternal()
         }
     }
 
     fun onClickForceClose() {
         if (!::appInfo.isInitialized) return
         viewModelScope.launch(Dispatchers.IO) {
-            localeRepository.forceStopPackage(appInfo.packageName)
+            val completed = runCatching {
+                localeRepository.forceStopPackage(appInfo.packageName)
+            }.onFailure { error ->
+                Log.w(
+                    BuildConfig.APPLICATION_ID,
+                    "Unable to force stop ${appInfo.packageName}",
+                    error
+                )
+            }.getOrDefault(false)
+            _events.emit(
+                if (completed) {
+                    AppInfoEvent.ForceStopCompleted
+                } else {
+                    AppInfoEvent.ForceStopFailed
+                }
+            )
+        }
+    }
+
+    private fun emitEvent(event: AppInfoEvent) {
+        viewModelScope.launch {
+            _events.emit(event)
         }
     }
 
@@ -149,44 +220,72 @@ class AppInfoVm @Inject constructor(
 
     fun onPinLang(singleLocale: SingleLocale) {
         val sp = getSp()
-        val set = sp.getStringSet(PrefConstants.PINNED_LOCALES, emptySet()) ?: emptySet()
-        val mset = set.toMutableSet()
-        mset.add("${singleLocale.name},${singleLocale.languageTag}")
-        sp.edit().putStringSet(PrefConstants.PINNED_LOCALES, mset).apply()
+        val pinnedLocales = sp.getPinnedLocales()
+        if (pinnedLocales.none { it.languageTag == singleLocale.languageTag }) {
+            pinnedLocales.add(singleLocale)
+            sp.setPinnedLocales(pinnedLocales)
+        }
         updatePinnedLangsFromSP()
     }
 
     fun onRemovePin(singleLocale: SingleLocale) {
         val sp = getSp()
-        val set = sp.getStringSet(PrefConstants.PINNED_LOCALES, emptySet()) ?: emptySet()
-        val newSet = mutableSetOf<String>()
-        set.forEach {
-            if (!it.contains(singleLocale.languageTag)) {
-                newSet.add(it)
-            }
-        }
-        sp.edit().putStringSet(PrefConstants.PINNED_LOCALES, newSet).apply()
+        val remainingLocales = sp.getPinnedLocales()
+            .filterNot { it.languageTag == singleLocale.languageTag }
+        sp.setPinnedLocales(remainingLocales)
         updatePinnedLangsFromSP()
     }
 
     fun updatePinnedLangsFromSP() {
         val sp = getSp()
-        val set = sp.getStringSet(PrefConstants.PINNED_LOCALES, emptySet()) ?: return
-        val pinnedLocaleList = set.parseSetLangs()
+        val pinnedLocaleList = sp.getPinnedLocales()
         _uiState.update { it.copy(listOfPinnedLanguages = pinnedLocaleList) }
     }
 }
 
-fun Locale.capDisplayName(): String {
-    return this.getDisplayName(this).replaceFirstChar { it.uppercaseChar() }
+fun SharedPreferences.getPinnedLocales(): MutableList<SingleLocale> {
+    val storedLocales = getString(PrefConstants.PINNED_LOCALES_ORDERED, null)
+        ?.let { serialized ->
+            runCatching {
+                pinnedLocalesJson.decodeFromString<List<SingleLocale>>(serialized)
+            }.getOrNull()
+        }
+    if (storedLocales != null) {
+        return storedLocales.toMutableList()
+    }
+
+    val legacyLocales = getStringSet(PrefConstants.PINNED_LOCALES, emptySet()).orEmpty()
+    val migratedLocales = legacyLocales.parseSetLangs().sortPinnedLocalesForMigration()
+    setPinnedLocales(migratedLocales)
+    return migratedLocales
 }
 
-fun Set<String>.parseSetLangs(): MutableList<SingleLocale> {
+fun SharedPreferences.setPinnedLocales(locales: List<SingleLocale>) {
+    val legacyValues = locales.map { "${it.name},${it.languageTag}" }.toSet()
+    edit()
+        .putString(PrefConstants.PINNED_LOCALES_ORDERED, pinnedLocalesJson.encodeToString(locales))
+        .putStringSet(PrefConstants.PINNED_LOCALES, legacyValues)
+        .apply()
+}
+
+fun Locale.capDisplayName(): String {
+    return this.getDisplayName(this)
+        .normalizeLocaleDisplayName()
+        .replaceFirstChar { it.uppercaseChar() }
+}
+
+private val missingDisplayNameCommaSpace = Regex(",(?=\\S)")
+
+private fun String.normalizeLocaleDisplayName(): String =
+    replace(missingDisplayNameCommaSpace, ", ")
+
+fun Iterable<String>.parseSetLangs(): MutableList<SingleLocale> {
     return this.mapNotNull {
         try {
-            val stringLocale = it.split(",")
-            val name = stringLocale[0]
-            val tag = stringLocale[1]
+            val separatorIndex = it.lastIndexOf(',')
+            require(separatorIndex > 0 && separatorIndex < it.lastIndex)
+            val name = it.substring(0, separatorIndex).normalizeLocaleDisplayName()
+            val tag = it.substring(separatorIndex + 1)
             SingleLocale(name, tag)
         } catch (e: Exception) {
             Log.e(BuildConfig.APPLICATION_ID, e.stackTraceToString())
@@ -194,3 +293,14 @@ fun Set<String>.parseSetLangs(): MutableList<SingleLocale> {
         }
     }.toMutableList()
 }
+
+internal fun List<SingleLocale>.sortPinnedLocalesForMigration(): MutableList<SingleLocale> =
+    sortedWith(
+        compareBy<SingleLocale> { it.name.lowercase(Locale.ROOT) }
+            .thenBy { it.languageTag }
+    ).toMutableList()
+
+fun Set<String>.withoutLocale(singleLocale: SingleLocale): MutableSet<String> =
+    filterTo(mutableSetOf()) {
+        it.substringAfterLast(',') != singleLocale.languageTag
+    }

@@ -11,6 +11,10 @@ import vegabobo.languageselector.domain.apps.AppListPreferences
 
 enum class OperationMode { NONE, SHIZUKU, ROOT }
 
+enum class AppListPermissionState { Unknown, Granted, Denied }
+
+enum class ShizukuAccessState { Unknown, Granted, Unavailable, Denied }
+
 enum class SearchPhase { Expanded, Expanding, Collapsed, Collapsing }
 
 enum class SearchResultState { Default, Empty, Results }
@@ -87,7 +91,9 @@ data class MainScreenState(
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
     val isLocaleRefreshRunning: Boolean = false,
-    val isOperationModeResolved: Boolean = false
+    val isOperationModeResolved: Boolean = false,
+    val appListPermissionState: AppListPermissionState = AppListPermissionState.Unknown,
+    val shizukuAccessState: ShizukuAccessState = ShizukuAccessState.Unknown
 )
 
 fun AppInfo.toAppInfoEntity(): AppInfoEntity =

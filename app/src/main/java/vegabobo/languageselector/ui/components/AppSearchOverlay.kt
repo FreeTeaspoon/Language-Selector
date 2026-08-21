@@ -16,7 +16,6 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -26,6 +25,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
@@ -53,7 +53,10 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -135,11 +138,19 @@ fun CollapsedAppSearch(
             }
             .then(
                 if (status.isCollapsed()) {
-                    Modifier.pointerInput(Unit) {
-                        detectTapGestures {
-                            onStatusChange(status.copy(current = SearchPhase.Expanding))
+                    Modifier
+                        .heightIn(min = 48.dp)
+                        .clickable(
+                            interactionSource = null,
+                            indication = null,
+                            onClick = {
+                                onStatusChange(status.copy(current = SearchPhase.Expanding))
+                            }
+                        )
+                        .semantics {
+                            role = Role.Button
+                            contentDescription = status.label
                         }
-                    }
                 } else {
                     Modifier
                 }
@@ -159,6 +170,8 @@ fun AppSearchPager(
     onAppClick: (AppInfo) -> Unit
 ) {
     val systemTop = WindowInsets.systemBars.asPaddingValues().calculateTopPadding()
+    val imeBottomPadding = WindowInsets.ime.asPaddingValues().calculateBottomPadding()
+    val emptyStateBottomPadding = max(bottomPadding, imeBottomPadding)
     val topPadding by animateDpAsState(
         targetValue = if (status.shouldExpand()) {
             systemTop + 5.dp
@@ -206,7 +219,7 @@ fun AppSearchPager(
                     )
                 }
             }
-            AnimatedVisibility(
+    AnimatedVisibility(
                 visible = status.isExpand() || status.isAnimatingExpand(),
                 enter = expandHorizontally() + slideInHorizontally(initialOffsetX = { it }),
                 exit = shrinkHorizontally() + slideOutHorizontally(targetOffsetX = { it })
@@ -233,12 +246,16 @@ fun AppSearchPager(
             enter = fadeIn(),
             exit = fadeOut(),
             modifier = Modifier
-                .fillMaxSize()
+                .weight(1f)
+                .fillMaxWidth()
                 .zIndex(1f)
         ) {
             when (status.resultStatus) {
-                SearchResultState.Default,
-                SearchResultState.Empty -> Box(Modifier.fillMaxSize())
+                SearchResultState.Default -> {}
+                SearchResultState.Empty -> SearchMessage(
+                    text = stringResource(R.string.no_search_results, status.searchText),
+                    bottomPadding = emptyStateBottomPadding
+                )
 
                 SearchResultState.Results -> LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -264,6 +281,22 @@ fun AppSearchPager(
 }
 
 @Composable
+private fun SearchMessage(text: String, bottomPadding: Dp) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(bottom = bottomPadding),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            modifier = Modifier.padding(horizontal = 32.dp)
+        )
+    }
+}
+
+@Composable
 private fun ExpandedSearchField(
     status: AppSearchStatus,
     onStatusChange: (AppSearchStatus) -> Unit,
@@ -271,6 +304,7 @@ private fun ExpandedSearchField(
     modifier: Modifier = Modifier
 ) {
     val focusRequester = remember { FocusRequester() }
+    val clearSearchDescription = stringResource(R.string.clear_search)
     var value by remember { mutableStateOf(TextFieldValue(status.searchText)) }
 
     LaunchedEffect(status.searchText) {
@@ -327,6 +361,7 @@ private fun ExpandedSearchField(
                         modifier = Modifier
                             .size(44.dp)
                             .padding(start = 8.dp, end = 16.dp)
+                            .semantics { contentDescription = clearSearchDescription }
                             .clickable(interactionSource = null, indication = null) {
                                 value = TextFieldValue("")
                                 onStatusChange(status.copy(searchText = ""))

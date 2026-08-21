@@ -10,9 +10,19 @@
     <string name="show_system_apps">Show system apps</string>
     <string name="settings">Settings</string>
     <string name="launch">Launch</string>
+    <string name="app_not_launchable">This app cannot be launched</string>
     <string name="force_stop">Force stop</string>
+    <string name="force_stop_completed">Force stopped</string>
+    <string name="force_stop_failed">Could not force stop the app</string>
     <string name="permissions_required">Permissions required</string>
     <string name="shizuku_required">This app requires Shizuku, please install and start Shizuku, after granting Shizuku permissions to this app, you can proceed.</string>
+    <string name="app_list_permission_required">App list permission required</string>
+    <string name="app_list_permission_message">Allow access to the installed-app list in system settings so Language Selector can display and manage apps.</string>
+    <string name="open_settings">Open settings</string>
+    <string name="retry">Retry</string>
+    <string name="open_shizuku">Open Shizuku</string>
+    <string name="shizuku_unavailable">Shizuku is not running or is not installed. Start Shizuku, then try again.</string>
+    <string name="shizuku_permission_denied">Shizuku permission was denied. Grant access to Language Selector in Shizuku, then try again.</string>
     <string name="proceed">Proceed</string>
     <string name="pinned_ok">%1$s pinned</string>
     <string name="unpinned">%1$s unpinned</string>
@@ -41,7 +51,8 @@
     <string name="clear_history_message">This removes all recently selected apps from history.</string>
     <string name="history_empty">No recently selected apps</string>
     <string name="clear">Clear</string>
-    <string name="search_empty_hint">Type something to search</string>
+    <string name="no_search_results">No apps found for “%1$s”</string>
+    <string name="clear_search">Clear search</string>
     <string name="more_options">More options</string>
     <string name="sort">Sort</string>
     <string name="sort_name">Application name</string>
@@ -57,4 +68,7 @@
     <string name="refresh_refreshing">Refreshing</string>
     <string name="refresh_complete">Refresh complete</string>
     <string name="refreshing_app_states">Refreshing app states…</string>
+    <string name="locale_applied">Language changed to %1$s</string>
+    <string name="locale_apply_failed">Could not change the app language. Check that Shizuku or root access is available, then try again.</string>
+    <string name="selected">Selected</string>
 </resources>

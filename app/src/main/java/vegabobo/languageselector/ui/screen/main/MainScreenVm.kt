@@ -92,9 +92,13 @@ class MainScreenVm @Inject constructor(
         }
     }
 
-    fun refresh() = loadApps(userRefresh = true)
+    fun refresh() {
+        if (_uiState.value.appListPermissionState == AppListPermissionState.Denied) return
+        loadApps(userRefresh = true)
+    }
 
     fun onAppListPermissionGranted() {
+        _uiState.update { it.copy(appListPermissionState = AppListPermissionState.Granted) }
         if (_uiState.value.listOfApps.isNotEmpty() || resumeRefreshJob?.isActive == true) return
         resumeRefreshJob = viewModelScope.launch(Dispatchers.IO) {
             refreshJob?.join()
@@ -104,7 +108,18 @@ class MainScreenVm @Inject constructor(
         }
     }
 
+    fun onAppListPermissionDenied() {
+        _uiState.update {
+            it.copy(
+                appListPermissionState = AppListPermissionState.Denied,
+                isLoading = false,
+                isRefreshing = false
+            )
+        }
+    }
+
     fun onShizukuPermissionGranted() {
+        _uiState.update { it.copy(shizukuAccessState = ShizukuAccessState.Granted) }
         if (connectionRefreshJob?.isActive == true) return
         connectionRefreshJob = viewModelScope.launch(Dispatchers.IO) {
             refreshJob?.join()
@@ -121,6 +136,14 @@ class MainScreenVm @Inject constructor(
                 refreshLocaleStates()
             }
         }
+    }
+
+    fun onShizukuUnavailable() {
+        _uiState.update { it.copy(shizukuAccessState = ShizukuAccessState.Unavailable) }
+    }
+
+    fun onShizukuPermissionDenied() {
+        _uiState.update { it.copy(shizukuAccessState = ShizukuAccessState.Denied) }
     }
 
     private fun loadApps(userRefresh: Boolean) {

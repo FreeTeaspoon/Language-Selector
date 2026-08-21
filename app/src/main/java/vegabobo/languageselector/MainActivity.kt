@@ -3,8 +3,10 @@ package vegabobo.languageselector
 import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -55,7 +57,9 @@ class MainActivity : ComponentActivity(), Shizuku.OnRequestPermissionResultListe
     override val navigationEventDispatcher = NavigationEventDispatcher()
     private var navigationEventInput: NavigationEventInput? = null
     private var onShizukuPermissionGranted: (() -> Unit)? = null
+    private var onShizukuPermissionDenied: (() -> Unit)? = null
     private var onAppListPermissionGranted: (() -> Unit)? = null
+    private var onAppListPermissionDenied: (() -> Unit)? = null
     private val activityResumeCount = mutableIntStateOf(0)
 
     init {
@@ -94,32 +98,56 @@ class MainActivity : ComponentActivity(), Shizuku.OnRequestPermissionResultListe
     private val REQUEST_PERMISSION_RESULT_LISTENER = this::onRequestPermissionResult
 
     override fun onRequestPermissionResult(requestCode: Int, grantResult: Int) {
-        if (requestCode == acRequestCode && grantResult == PackageManager.PERMISSION_GRANTED) {
+        if (requestCode != acRequestCode) return
+        if (grantResult == PackageManager.PERMISSION_GRANTED) {
             bindShizuku()
             onShizukuPermissionGranted?.invoke()
+        } else {
+            onShizukuPermissionDenied?.invoke()
         }
-        if (requestCode == acRequestCode) onShizukuPermissionGranted = null
+        onShizukuPermissionGranted = null
+        onShizukuPermissionDenied = null
     }
 
-    fun requestShizukuAccess(onPermissionGranted: () -> Unit) {
-        if (!Shizuku.pingBinder()) return
+    fun requestShizukuAccess(
+        onPermissionGranted: () -> Unit,
+        onPermissionUnavailable: () -> Unit,
+        onPermissionDenied: () -> Unit
+    ) {
+        if (!Shizuku.pingBinder()) {
+            onPermissionUnavailable()
+            return
+        }
         if (Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) {
             bindShizuku()
             onPermissionGranted()
             return
         }
-        if (!Shizuku.shouldShowRequestPermissionRationale()) {
-            onShizukuPermissionGranted = onPermissionGranted
+        if (Shizuku.shouldShowRequestPermissionRationale()) {
+            onPermissionDenied()
+            return
+        }
+        onShizukuPermissionGranted = onPermissionGranted
+        onShizukuPermissionDenied = onPermissionDenied
+        runCatching {
             Shizuku.requestPermission(acRequestCode)
+        }.onFailure {
+            onShizukuPermissionGranted = null
+            onShizukuPermissionDenied = null
+            onPermissionUnavailable()
         }
     }
 
-    fun requestAppListAccess(onPermissionGranted: () -> Unit) {
+    fun requestAppListAccess(
+        onPermissionGranted: () -> Unit,
+        onPermissionDenied: () -> Unit
+    ) {
         if (!supportsRuntimeAppListPermission() || hasAppListPermission()) {
             onPermissionGranted()
             return
         }
         onAppListPermissionGranted = onPermissionGranted
+        onAppListPermissionDenied = onPermissionDenied
         ActivityCompat.requestPermissions(
             this,
             arrayOf(GET_INSTALLED_APPS_PERMISSION),
@@ -150,8 +178,31 @@ class MainActivity : ComponentActivity(), Shizuku.OnRequestPermissionResultListe
         if (requestCode == appListRequestCode) {
             if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
                 onAppListPermissionGranted?.invoke()
+            } else {
+                onAppListPermissionDenied?.invoke()
             }
             onAppListPermissionGranted = null
+            onAppListPermissionDenied = null
+        }
+    }
+
+    fun openAppSettings() {
+        startActivity(
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.parse("package:$packageName")
+            }
+        )
+    }
+
+    fun openShizuku() {
+        val shizukuPackage = "moe.shizuku.privileged.api"
+        val launchIntent = packageManager.getLaunchIntentForPackage(shizukuPackage)
+        if (launchIntent != null) {
+            startActivity(launchIntent)
+        } else {
+            startActivity(
+                Intent(Intent.ACTION_VIEW, Uri.parse("https://shizuku.rikka.app/"))
+            )
         }
     }
 
@@ -180,7 +231,9 @@ class MainActivity : ComponentActivity(), Shizuku.OnRequestPermissionResultListe
                     Navigation(
                         activityResumeCount = activityResumeCount.intValue,
                         requestAppListAccess = ::requestAppListAccess,
-                        requestShizukuAccess = ::requestShizukuAccess
+                        requestShizukuAccess = ::requestShizukuAccess,
+                        openAppSettings = ::openAppSettings,
+                        openShizuku = ::openShizuku
                     )
                 }
             }
@@ -204,7 +257,9 @@ class MainActivity : ComponentActivity(), Shizuku.OnRequestPermissionResultListe
     override fun onDestroy() {
         Shizuku.removeRequestPermissionResultListener(REQUEST_PERMISSION_RESULT_LISTENER)
         onShizukuPermissionGranted = null
+        onShizukuPermissionDenied = null
         onAppListPermissionGranted = null
+        onAppListPermissionDenied = null
         navigationEventInput?.let(navigationEventDispatcher::removeInput)
         navigationEventInput = null
         navigationEventDispatcher.dispose()

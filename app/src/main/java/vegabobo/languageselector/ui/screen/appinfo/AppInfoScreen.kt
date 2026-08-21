@@ -2,6 +2,7 @@ package vegabobo.languageselector.ui.screen.appinfo
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -111,6 +112,12 @@ fun AppInfoScreen(
     var expandedLanguages by remember { mutableStateOf(setOf<String>()) }
     val pinnedMessage = stringResource(R.string.pinned_ok)
     val unpinnedMessage = stringResource(R.string.unpinned)
+    val localeAppliedMessage = stringResource(R.string.locale_applied)
+    val localeApplyFailedMessage = stringResource(R.string.locale_apply_failed)
+    val appNotLaunchableMessage = stringResource(R.string.app_not_launchable)
+    val forceStopCompletedMessage = stringResource(R.string.force_stop_completed)
+    val forceStopFailedMessage = stringResource(R.string.force_stop_failed)
+    val systemDefault = stringResource(R.string.system_default)
 
     fun showMessage(message: String) {
         coroutineScope.launch {
@@ -130,6 +137,19 @@ fun AppInfoScreen(
     LaunchedEffect(appId) {
         appInfoVm.initFromAppId(appId)
         appInfoVm.updatePinnedLangsFromSP()
+    }
+    LaunchedEffect(appInfoVm) {
+        appInfoVm.events.collect { event ->
+            when (event) {
+                is AppInfoEvent.LocaleApplied -> showMessage(
+                    localeAppliedMessage.format(event.localeName ?: systemDefault)
+                )
+                AppInfoEvent.LocaleApplyFailed -> showMessage(localeApplyFailedMessage)
+                AppInfoEvent.LaunchUnavailable -> showMessage(appNotLaunchableMessage)
+                AppInfoEvent.ForceStopCompleted -> showMessage(forceStopCompletedMessage)
+                AppInfoEvent.ForceStopFailed -> showMessage(forceStopFailedMessage)
+            }
+        }
     }
 
     Scaffold(
@@ -191,43 +211,63 @@ fun AppInfoScreen(
                     .scrollEndHaptic()
                     .animateContentSize()
             ) {
-            item {
+            item(key = "app-header") {
                 AppHeader(uiState)
             }
 
             if (uiState.listOfPinnedLanguages.isNotEmpty()) {
-                item { SmallTitle(text = stringResource(R.string.pinned)) }
-                items(uiState.listOfPinnedLanguages.size) { index ->
+                item(key = "pinned-title") { SmallTitle(text = stringResource(R.string.pinned)) }
+                items(
+                    count = uiState.listOfPinnedLanguages.size,
+                    key = { index -> "pinned-${uiState.listOfPinnedLanguages[index].languageTag}" }
+                ) { index ->
                     val locale = uiState.listOfPinnedLanguages[index]
                     LocaleItemList(
                         itemText = locale.name,
+                        selected = locale.languageTag == uiState.currentLanguageTag,
+                        enabled = !uiState.isLocaleOperationRunning,
                         onClick = { appInfoVm.onClickLocale(locale) },
                         onLongClick = { localePendingUnpin = locale }
                     )
                 }
             }
 
-            item { SmallTitle(text = stringResource(R.string.user_languages)) }
-            item {
-                LocaleItemList(stringResource(R.string.system_default)) {
-                    appInfoVm.onClickResetLang()
-                }
+            item(key = "user-languages-title") { SmallTitle(text = stringResource(R.string.user_languages)) }
+            item(key = "system-default") {
+                LocaleItemList(
+                    itemText = stringResource(R.string.system_default),
+                    selected = uiState.currentLanguageTag.isEmpty(),
+                    enabled = !uiState.isLocaleOperationRunning,
+                    onClick = { appInfoVm.onClickResetLang() }
+                )
             }
-            items(uiState.listOfSuggestedLanguages.size) { index ->
+            items(
+                count = uiState.listOfSuggestedLanguages.size,
+                key = { index -> "suggested-${uiState.listOfSuggestedLanguages[index].languageTag}" }
+            ) { index ->
                 val locale = uiState.listOfSuggestedLanguages[index]
                 LocaleItemList(
                     itemText = locale.name,
+                    selected = locale.languageTag == uiState.currentLanguageTag,
+                    enabled = !uiState.isLocaleOperationRunning,
                     onClick = { appInfoVm.onClickLocale(locale) },
                     onLongClick = { onLocaleLongPress(locale) }
                 )
             }
 
-            item { SmallTitle(text = stringResource(R.string.all_languages)) }
-            items(uiState.listOfAllLanguages.size) { index ->
+            item(key = "all-languages-title") { SmallTitle(text = stringResource(R.string.all_languages)) }
+            items(
+                count = uiState.listOfAllLanguages.size,
+                key = { index -> "all-language-${uiState.listOfAllLanguages[index].language}" }
+            ) { index ->
                 val language = uiState.listOfAllLanguages[index]
                 if (!language.hasMultipleSelections()) {
                     LocaleItemList(
                         itemText = language.language,
+                        selected = language.locales.any {
+                            it.languageTag == uiState.currentLanguageTag
+                        },
+                        enabled = !uiState.isLocaleOperationRunning,
                         onClick = {
                             language.locales.firstOrNull()?.let(appInfoVm::onClickLocale)
                         },
@@ -237,9 +277,17 @@ fun AppInfoScreen(
                     )
                 } else {
                     val expanded = expandedLanguages.contains(language.language)
+                    val expandedVisibilityState = remember {
+                        MutableTransitionState(expanded)
+                    }
+                    expandedVisibilityState.targetState = expanded
                     Column(modifier = Modifier.fillMaxWidth()) {
                         LocaleItemList(
                             itemText = language.language,
+                            selected = language.locales.any {
+                                it.languageTag == uiState.currentLanguageTag
+                            },
+                            enabled = !uiState.isLocaleOperationRunning,
                             showArrow = true,
                             onClick = {
                                 expandedLanguages = if (expanded) {
@@ -253,7 +301,7 @@ fun AppInfoScreen(
                             }
                         )
                         AnimatedVisibility(
-                            visible = expanded,
+                            visibleState = expandedVisibilityState,
                             enter = expandVertically() + fadeIn(),
                             exit = shrinkVertically() + fadeOut()
                         ) {
@@ -263,6 +311,7 @@ fun AppInfoScreen(
                                     LocaleChildItem(
                                         itemText = locale.name,
                                         selected = locale.languageTag == uiState.currentLanguageTag,
+                                        enabled = !uiState.isLocaleOperationRunning,
                                         onClick = { appInfoVm.onClickLocale(locale) },
                                         onLongClick = { onLocaleLongPress(locale) }
                                     )
@@ -273,7 +322,7 @@ fun AppInfoScreen(
                     }
                 }
             }
-            item { Spacer(Modifier.size(1.dp)) }
+            item(key = "bottom-spacer") { Spacer(Modifier.size(1.dp)) }
             }
         }
     }
@@ -296,12 +345,9 @@ private fun UnpinLanguageDialog(
     OverlayDialog(
         show = show,
         onDismissRequest = onDismiss,
-        title = locale?.let { stringResource(R.string.unpin_title, it.name) }
+        title = locale?.let { stringResource(R.string.unpin_title, it.name) },
+        summary = stringResource(R.string.unpin_message)
     ) {
-        Text(
-            text = stringResource(R.string.unpin_message),
-            color = MiuixTheme.colorScheme.onSurface
-        )
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -336,7 +382,6 @@ private fun AppHeader(state: AppInfoState) {
             if (state.applicationInfo != null) {
                 AppIconImage(
                     applicationInfo = state.applicationInfo,
-                    label = state.appName,
                     size = 64.dp,
                     modifier = Modifier.size(64.dp)
                 )
