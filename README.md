@@ -27,14 +27,20 @@ Long-press a language to pin it. Pinned languages also show up on the QS tile.
 
 ### Release builds
 
-Local release builds use the Android debug keystore unless all four external signing
-properties are supplied. For distributable releases, keep the keystore and passwords
-outside the repository, for example in the user Gradle properties file or CI secrets:
+Release tasks require a production signing key. Keep the keystore and passwords outside
+the repository, for example in the user Gradle properties file or CI secrets:
 
 - `releaseStoreFile`
 - `releaseStorePassword`
 - `releaseKeyAlias`
 - `releaseKeyPassword`
 
-If any signing property is supplied, all four are required. A debug-signed release is
-intended for local testing and is not a production release signature.
+When passwords are supplied directly, all four signing properties are required. On macOS,
+the build can instead read the keystore password from Keychain. That setup uses
+`releaseStoreFile` and `releaseKeyAlias` together with these non-secret properties:
+
+- `releaseKeychainService`
+- `releaseKeychainAccount`
+
+Release tasks fail when production signing is not configured. Debug builds do not need
+release signing properties.

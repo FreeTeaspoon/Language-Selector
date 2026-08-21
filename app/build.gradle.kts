@@ -1,7 +1,7 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
-val appVersionCode = 22
-val appVersionName = "1.05.7"
+val appVersionCode = 23
+val appVersionName = "1.05.8"
 
 plugins {
     alias(libs.plugins.com.android.application)
@@ -13,27 +13,63 @@ plugins {
     alias(libs.plugins.androidx.room)
 }
 
-val releaseStoreFile = providers.gradleProperty("releaseStoreFile")
-val releaseStorePassword = providers.gradleProperty("releaseStorePassword")
-val releaseKeyAlias = providers.gradleProperty("releaseKeyAlias")
-val releaseKeyPassword = providers.gradleProperty("releaseKeyPassword")
+fun readMacKeychainPassword(service: String?, account: String?): String? {
+    if (service.isNullOrBlank() || account.isNullOrBlank()) return null
+
+    val security = File("/usr/bin/security")
+    if (!security.exists()) return null
+
+    return runCatching {
+        val process = ProcessBuilder(
+            security.absolutePath,
+            "find-generic-password",
+            "-s",
+            service,
+            "-a",
+            account,
+            "-w"
+        ).redirectError(ProcessBuilder.Redirect.DISCARD).start()
+        val password = process.inputStream.bufferedReader().use { it.readText().trim() }
+        if (process.waitFor() == 0 && password.isNotEmpty()) password else null
+    }.getOrNull()
+}
+
+val releaseStoreFile = providers.gradleProperty("releaseStoreFile").orNull
+val releaseKeyAlias = providers.gradleProperty("releaseKeyAlias").orNull
+val releaseKeychainService = providers.gradleProperty("releaseKeychainService").orNull
+val releaseKeychainAccount = providers.gradleProperty("releaseKeychainAccount").orNull
+val keychainPassword = readMacKeychainPassword(releaseKeychainService, releaseKeychainAccount)
+val releaseStorePassword = providers.gradleProperty("releaseStorePassword").orNull ?: keychainPassword
+val releaseKeyPassword = providers.gradleProperty("releaseKeyPassword").orNull ?: keychainPassword
 val releaseSigningConfigured = listOf(
     releaseStoreFile,
     releaseStorePassword,
     releaseKeyAlias,
     releaseKeyPassword
-).all { it.isPresent }
+).all { !it.isNullOrBlank() }
 val releaseSigningPartiallyConfigured = listOf(
     releaseStoreFile,
     releaseStorePassword,
     releaseKeyAlias,
-    releaseKeyPassword
-).any { it.isPresent } && !releaseSigningConfigured
+    releaseKeyPassword,
+    releaseKeychainService,
+    releaseKeychainAccount
+).any { !it.isNullOrBlank() } && !releaseSigningConfigured
 
 if (releaseSigningPartiallyConfigured) {
     throw GradleException(
         "Release signing requires all four properties: " +
             "releaseStoreFile, releaseStorePassword, releaseKeyAlias, releaseKeyPassword"
+    )
+}
+
+val releaseTaskRequested = gradle.startParameter.taskNames.any { taskName ->
+    taskName.substringAfterLast(':').contains("release", ignoreCase = true)
+}
+if (releaseTaskRequested && !releaseSigningConfigured) {
+    throw GradleException(
+        "Release tasks require production signing. Configure the four release signing " +
+            "properties or a macOS Keychain-backed release signing setup."
     )
 }
 
@@ -57,10 +93,10 @@ android {
     signingConfigs {
         if (releaseSigningConfigured) {
             create("release") {
-                storeFile = file(releaseStoreFile.get())
-                storePassword = releaseStorePassword.get()
-                keyAlias = releaseKeyAlias.get()
-                keyPassword = releaseKeyPassword.get()
+                storeFile = file(requireNotNull(releaseStoreFile))
+                storePassword = requireNotNull(releaseStorePassword)
+                keyAlias = requireNotNull(releaseKeyAlias)
+                keyPassword = requireNotNull(releaseKeyPassword)
             }
         }
     }
