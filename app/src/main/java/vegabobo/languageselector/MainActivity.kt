@@ -114,16 +114,21 @@ class MainActivity : ComponentActivity(), Shizuku.OnRequestPermissionResultListe
         onPermissionUnavailable: () -> Unit,
         onPermissionDenied: () -> Unit
     ) {
-        if (!Shizuku.pingBinder()) {
+        if (!runCatching { Shizuku.pingBinder() }.getOrDefault(false)) {
             onPermissionUnavailable()
             return
         }
-        if (Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) {
+        val permission = runCatching { Shizuku.checkSelfPermission() }.getOrNull()
+        if (permission == null) {
+            onPermissionUnavailable()
+            return
+        }
+        if (permission == PackageManager.PERMISSION_GRANTED) {
             bindShizuku()
             onPermissionGranted()
             return
         }
-        if (Shizuku.shouldShowRequestPermissionRationale()) {
+        if (runCatching { Shizuku.shouldShowRequestPermissionRationale() }.getOrDefault(false)) {
             onPermissionDenied()
             return
         }
@@ -207,13 +212,15 @@ class MainActivity : ComponentActivity(), Shizuku.OnRequestPermissionResultListe
     }
 
     private fun bindGrantedShizuku() {
-        if (
-            Shizuku.pingBinder() &&
-            Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
-        ) {
+        if (hasGrantedShizukuPermission()) {
             bindShizuku()
         }
     }
+
+    private fun hasGrantedShizukuPermission(): Boolean = runCatching {
+        Shizuku.pingBinder() &&
+            Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
+    }.getOrDefault(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -246,8 +253,7 @@ class MainActivity : ComponentActivity(), Shizuku.OnRequestPermissionResultListe
         super.onResume()
         activityResumeCount.intValue++
         if (
-            Shizuku.pingBinder() &&
-            Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED &&
+            hasGrantedShizukuPermission() &&
             !UserServiceProvider.isConnected(OperationMode.SHIZUKU)
         ) {
             bindShizuku()
